@@ -13,7 +13,7 @@ Runs during "sleep mode" (e.g., 6 PM - 9 AM ET) to improve next-day edges by 10-
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime, time, timedelta
 from pathlib import Path
 import json
@@ -21,6 +21,13 @@ from src.utils import log, config
 from src.agents.hypothesis_generator import HypothesisGenerator
 from src.backtesting.monte_carlo import MonteCarloSimulator, RegimeDetector
 from src.backtesting.walk_forward import WalkForwardValidator
+
+try:
+    from src.hive_mind import P2PNetwork, ModelSharer, AntiPoisoningValidator
+    HIVE_MIND_AVAILABLE = True
+except ImportError:
+    HIVE_MIND_AVAILABLE = False
+    log.warning("Hive mind modules not available")
 
 class OfflineResearchEngine:
     """
@@ -39,17 +46,28 @@ class OfflineResearchEngine:
         data_dir: str = "data/offline",
         results_dir: str = "results/offline",
         sleep_start: time = time(18, 0),  # 6 PM ET
-        sleep_end: time = time(9, 0)      # 9 AM ET
+        sleep_end: time = time(9, 0),      # 9 AM ET
+        hive_mind_enabled: bool = False
     ):
         self.data_dir = Path(data_dir)
         self.results_dir = Path(results_dir)
         self.sleep_start = sleep_start
         self.sleep_end = sleep_end
+        self.hive_mind_enabled = hive_mind_enabled and HIVE_MIND_AVAILABLE
         
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
-        log.info("OfflineResearchEngine initialized")
+        self.p2p_network: Optional[P2PNetwork] = None
+        if self.hive_mind_enabled:
+            try:
+                self.p2p_network = P2PNetwork()
+                log.info("Hive mind P2P network initialized")
+            except Exception as e:
+                log.error(f"Failed to initialize hive mind: {e}")
+                self.hive_mind_enabled = False
+        
+        log.info(f"OfflineResearchEngine initialized (hive_mind={'enabled' if self.hive_mind_enabled else 'disabled'})")
     
     def is_sleep_mode(self) -> bool:
         """
@@ -481,6 +499,51 @@ class OfflineResearchEngine:
         
         return results
     
+    def sync_with_hive_mind(self, research_results: Dict):
+        """
+        Sync discoveries with hive mind P2P network.
+        
+        Args:
+            research_results: Results from offline research
+        """
+        if not self.hive_mind_enabled or not self.p2p_network:
+            return
+        
+        log.info("Syncing with hive mind network")
+        
+        try:
+            node = self.p2p_network.get_node()
+            if not node:
+                return
+            
+            performance = research_results.get('steps', {}).get('performance_analysis', {})
+            sharpe = performance.get('sharpe_ratio', 0)
+            win_rate = performance.get('win_rate', 0)
+            
+            if sharpe > 1.5 and win_rate > 0.60:
+                log.info(f"Sharing discoveries (Sharpe: {sharpe:.2f}, Win Rate: {win_rate:.2%})")
+                
+                hypotheses = research_results.get('steps', {}).get('hypothesis_generation', {}).get('hypotheses', [])
+                for hypothesis in hypotheses[:5]:
+                    node.broadcast_message('hypothesis_share', {
+                        'hypothesis': hypothesis,
+                        'performance': {'sharpe': sharpe, 'win_rate': win_rate}
+                    })
+                
+                strategies = research_results.get('steps', {}).get('strategy_evolution', {})
+                if strategies:
+                    node.broadcast_message('strategy_share', {
+                        'strategies': strategies,
+                        'performance': {'sharpe': sharpe, 'win_rate': win_rate}
+                    })
+                
+                log.info("Hive mind sync complete")
+            else:
+                log.debug("Performance below threshold, not sharing")
+                
+        except Exception as e:
+            log.error(f"Error syncing with hive mind: {e}")
+    
     def schedule_offline_research(self):
         """
         Schedule offline research to run during sleep mode.
@@ -493,7 +556,12 @@ class OfflineResearchEngine:
         
         log.info("Sleep mode detected, running offline research")
         
-        return self.run_offline_research()
+        results = self.run_offline_research()
+        
+        if self.hive_mind_enabled:
+            self.sync_with_hive_mind(results)
+        
+        return results
 
 
 class AdaptiveLearningSystem:

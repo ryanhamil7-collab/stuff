@@ -109,3 +109,8 @@ pyswip>=0.2.10
 
 # Adversarial Training
 foolbox>=3.3.0
+
+# P2P Networking & Hive Mind
+grpc>=1.60.0
+grpcio-tools>=1.60.0
+pytz>=2023.3
