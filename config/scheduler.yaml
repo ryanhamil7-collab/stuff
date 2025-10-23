@@ -48,6 +48,44 @@ scheduler:
     refresh_interval: 300  # Refresh every 5 minutes (seconds)
     auto_restart: true  # Restart if crashed
   
+  symbol_discovery:
+    enabled: true
+    mode: "realtime"  # static | realtime
+    frequency_minutes: 15  # Run every 15 minutes during market hours
+    
+    max_symbols: 20  # Top N symbols to discover
+    min_score_threshold: 0.5  # Minimum score to consider
+    
+    asset_classes:
+      stocks: true  # S&P 500, Nasdaq-100
+      etfs: true  # Popular ETFs
+      crypto: true  # Cryptocurrencies via ccxt
+      options: true  # Options chains
+    
+    scoring:
+      sentiment_weight: 0.4
+      volatility_weight: 0.3
+      momentum_weight: 0.2
+      liquidity_weight: 0.1
+      external_weight: 0.0  # Weather, satellite, etc.
+    
+    filters:
+      min_volume: 1000000  # 1M minimum volume
+      min_volatility: 0.02  # 2% minimum volatility
+      min_sentiment: 0.3  # Minimum sentiment score
+      max_bid_ask_spread: 0.005  # 0.5% max spread
+    
+    hive_mind:
+      broadcast_enabled: true  # Broadcast discoveries to hive
+      receive_enabled: true  # Receive discoveries from hive
+      validate_before_adopt: true  # Run Monte Carlo validation
+      monte_carlo_runs: 1000  # Validation runs
+    
+    self_learning:
+      enabled: true  # Evolve filters during offline research
+      quantum_evolution: true  # Use quantum optimization
+      target_improvement: 0.20  # +20% hit rate target
+  
   logging:
     level: "INFO"  # DEBUG | INFO | WARNING | ERROR
     file: "logs/launcher.log"

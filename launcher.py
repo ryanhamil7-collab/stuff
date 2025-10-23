@@ -57,6 +57,7 @@ class TradingSystemLauncher:
         self.trading_process: Optional[subprocess.Popen] = None
         self.research_process: Optional[subprocess.Popen] = None
         self.dashboard_process: Optional[subprocess.Popen] = None
+        self.discovery_engine = None
         self.running = False
         
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -99,6 +100,15 @@ class TradingSystemLauncher:
                     'enabled': True,
                     'refresh_interval': 300  # 5 minutes
                 }
+            },
+            'symbol_discovery': {
+                'enabled': True,
+                'mode': 'realtime',
+                'frequency_minutes': 15,
+                'max_symbols': 20,
+                'include_crypto': True,
+                'include_options': True,
+                'hive_broadcast': True
             },
             'hive_mind': {
                 'enabled': False,
@@ -264,6 +274,40 @@ class TradingSystemLauncher:
         logger.info("Refreshing dashboard...")
         self.start_dashboard()
     
+    def run_symbol_discovery(self):
+        """Run real-time symbol discovery"""
+        if not self.config.get('symbol_discovery', {}).get('enabled', False):
+            return
+        
+        if not self.check_market_hours():
+            logger.debug("Outside market hours, skipping symbol discovery")
+            return
+        
+        try:
+            if not self.discovery_engine:
+                from src.agents.symbol_discovery import SymbolDiscoveryV2
+                
+                hive_mind = None
+                if self.config.get('hive_mind', {}).get('enabled', False):
+                    from src.hive_mind import P2PNode
+                    hive_mind = P2PNode(self.config['hive_mind'])
+                
+                self.discovery_engine = SymbolDiscoveryV2(hive_mind=hive_mind)
+                logger.info("Symbol discovery engine initialized")
+            
+            logger.info("🔍 Running real-time symbol discovery...")
+            discoveries = self.discovery_engine.discover_symbols_realtime()
+            
+            if discoveries:
+                logger.info(f"Discovered {len(discoveries)} high-potential symbols:")
+                for i, d in enumerate(discoveries[:5], 1):
+                    logger.info(f"  {i}. {d['symbol']} (score: {d['score']:.2f}, class: {d['asset_class']})")
+            else:
+                logger.info("No high-potential symbols discovered this cycle")
+                
+        except Exception as e:
+            logger.error(f"Symbol discovery failed: {e}")
+    
     def check_market_hours(self) -> bool:
         """Check if currently in market hours (9:30 AM - 4:00 PM ET, Mon-Fri)"""
         now = datetime.now(pytz.timezone('America/New_York'))
@@ -364,6 +408,19 @@ class TradingSystemLauncher:
                 replace_existing=True
             )
             logger.info(f"Scheduled dashboard refresh: every {refresh_interval}s")
+        
+        if self.config.get('symbol_discovery', {}).get('enabled', False):
+            discovery_config = self.config['symbol_discovery']
+            frequency_minutes = discovery_config.get('frequency_minutes', 15)
+            self.scheduler.add_job(
+                self.run_symbol_discovery,
+                'interval',
+                minutes=frequency_minutes,
+                id='symbol_discovery',
+                name='Symbol Discovery',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled symbol discovery: every {frequency_minutes} minutes")
     
     def start(self):
         """Start the automated launcher"""
