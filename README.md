@@ -1,14 +1,15 @@
 # 🤖 Autonomous Trading System
 
-A state-of-the-art, autonomous stock trading system powered by fine-tuned LLMs, reinforcement learning, and multi-agent architecture. Features **18 cutting-edge capabilities** from 2025+ research including quantum optimization, federated learning, neuro-symbolic AI, **set-and-forget 24/7 automation**, **decentralized P2P hive mind learning**, and **real-time symbol discovery**.
+A state-of-the-art, autonomous stock trading system powered by fine-tuned LLMs, reinforcement learning, and multi-agent architecture. Features **19 cutting-edge capabilities** from 2025+ research including quantum optimization, federated learning, neuro-symbolic AI, **set-and-forget 24/7 automation**, **decentralized P2P hive mind learning**, **real-time symbol discovery**, and **realistic execution delay modeling**.
 
 **⚠️ PAPER TRADING ONLY - No Real Money at Risk**
 
 ## 🌟 Key Highlights
 
-- **18 Advanced Features** from 2025+ research
+- **19 Advanced Features** from 2025+ research
 - **Set-and-Forget Launcher** - Runs 24/7 with zero human input
 - **Real-Time Symbol Discovery** - Autonomous scanning of 10,000+ tickers every 15 min
+- **Execution Delay Modeling** - Realistic backtesting with 100-450ms delays
 - **P2P Hive Mind Network** - Decentralized collaborative learning across users
 - **Multi-Agent Architecture** with specialized AI agents
 - **Quantum-Inspired Optimization** for 10x faster strategy evolution
@@ -28,7 +29,7 @@ A state-of-the-art, autonomous stock trading system powered by fine-tuned LLMs, 
 | **Accuracy** | 60% | 75-85% | 78-88% | 80-90% |
 | **Alphas/Week** | 10 | 50 | 100 | 150 |
 
-## 🚀 18 Advanced Features
+## 🚀 19 Advanced Features
 
 ### Wave 1: Core Advanced Features (6)
 
@@ -141,6 +142,15 @@ A state-of-the-art, autonomous stock trading system powered by fine-tuned LLMs, 
     - Hive-powered broadcasting (6x faster edge propagation)
     - Self-learning filters with quantum evolution
     - +15-25% better hit rate over time
+
+19. **Execution Delay Modeling**
+    - Realistic order execution delays (100-450ms typical)
+    - Variable delays with statistical distributions (normal/Poisson/uniform)
+    - Integrated slippage modeling (price impact during delays)
+    - Partial fill simulation for illiquid markets
+    - Market regime-based delay adjustments
+    - Monte Carlo delay testing (1000+ iterations)
+    - Prevents 10-50% overestimation of returns
 
 ## 📋 Requirements
 

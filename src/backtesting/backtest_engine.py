@@ -1,17 +1,30 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
 from src.agents import DataAgent, AnalysisAgent, DecisionAgent
 from src.strategies.portfolio import Portfolio
 from src.strategies import RiskManager
 from src.utils import log, config
+from src.backtesting.execution_delays import (
+    ExecutionDelaySimulator,
+    DelayConfig,
+    DelayAwareBacktester
+)
 
 class BacktestEngine:
     
-    def __init__(self, initial_capital: float = None):
+    def __init__(
+        self,
+        initial_capital: float = None,
+        enable_execution_delays: bool = None,
+        delay_config: Optional[DelayConfig] = None
+    ):
         if initial_capital is None:
             initial_capital = config.get('trading.initial_capital', 100000.0)
+        
+        if enable_execution_delays is None:
+            enable_execution_delays = config.get('backtesting.execution_delays.enabled', True)
         
         self.initial_capital = initial_capital
         self.portfolio = Portfolio(initial_capital)
@@ -21,7 +34,26 @@ class BacktestEngine:
         self.analysis_agent = AnalysisAgent()
         self.decision_agent = DecisionAgent()
         
-        log.info(f"BacktestEngine initialized with ${initial_capital:,.2f}")
+        self.enable_execution_delays = enable_execution_delays
+        if self.enable_execution_delays:
+            if delay_config is None:
+                delay_config = DelayConfig(
+                    fixed_delay_ms=config.get('backtesting.execution_delays.fixed_delay_ms', 200.0),
+                    use_variable_delay=config.get('backtesting.execution_delays.use_variable_delay', True),
+                    delay_mean_ms=config.get('backtesting.execution_delays.delay_mean_ms', 200.0),
+                    delay_std_ms=config.get('backtesting.execution_delays.delay_std_ms', 50.0),
+                    integrate_slippage=config.get('backtesting.execution_delays.integrate_slippage', True),
+                    slippage_bps=config.get('backtesting.execution_delays.slippage_bps', 10.0),
+                    model_partial_fills=config.get('backtesting.execution_delays.model_partial_fills', True),
+                    regime_based_delays=config.get('backtesting.execution_delays.regime_based_delays', True)
+                )
+            self.delay_simulator = ExecutionDelaySimulator(delay_config)
+            log.info(f"BacktestEngine initialized with execution delay modeling (mean={delay_config.delay_mean_ms}ms)")
+        else:
+            self.delay_simulator = None
+            log.info(f"BacktestEngine initialized without execution delay modeling")
+        
+        log.info(f"Initial capital: ${initial_capital:,.2f}")
     
     def run_backtest(
         self,

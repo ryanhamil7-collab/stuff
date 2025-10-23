@@ -137,6 +137,26 @@ backtest:
   slippage: 0.001  # 0.1% (10 bps slippage)
   monte_carlo_runs: 100
   
+  execution_delays:
+    enabled: true
+    fixed_delay_ms: 200.0
+    use_variable_delay: true
+    delay_mean_ms: 200.0
+    delay_std_ms: 50.0
+    delay_distribution: "normal"
+    integrate_slippage: true
+    slippage_bps: 10.0
+    slippage_std_bps: 5.0
+    model_partial_fills: true
+    min_fill_rate: 0.8
+    liquidity_threshold: 1000000.0
+    regime_based_delays: true
+    high_volatility_multiplier: 1.5
+    low_liquidity_multiplier: 2.0
+    data_feed_delay_ms: 100.0
+    broker_processing_ms: 50.0
+    network_jitter_ms: 20.0
+  
   walk_forward:
     enabled: false
     train_window: 365  # 1 year training
