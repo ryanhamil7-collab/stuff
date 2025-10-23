@@ -91,3 +91,8 @@ mypy>=1.7.0
 
 # Financial Analysis
 QuantLib>=1.31
+
+# Advanced Model Compression
+auto-gptq>=0.7.0
+hmmlearn>=0.3.0
+jsonschema>=4.20.0

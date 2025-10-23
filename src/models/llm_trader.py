@@ -4,17 +4,21 @@ from typing import Dict, List, Optional
 import json
 from src.utils import log, config
 from src.models.llm_schemas import TradingSignal, validate_llm_output
+from src.models.thesis_templates import ThesisPromptTemplate, StructuredThesis
 
 class LLMTrader:
     
-    def __init__(self, model_name: str = None):
+    def __init__(self, model_name: str = None, use_structured_thesis: bool = True):
         if model_name is None:
             model_name = config.get('llm.model_name', 'mistralai/Mistral-7B-Instruct-v0.2')
         
         self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.use_structured_thesis = use_structured_thesis
+        self.thesis_template = ThesisPromptTemplate()
         
         log.info(f"Loading LLM model: {model_name}")
+        log.info(f"Structured thesis format: {'enabled' if use_structured_thesis else 'disabled'}")
         
         try:
             quantization = config.get('llm.quantization', '4bit')
@@ -119,9 +123,14 @@ Trading Decision:"""
             alpha_signals = {'combined_score': 0.0}
         
         try:
-            prompt = self.create_trading_prompt(
-                symbol, technical_data, sentiment_data, alpha_signals, market_regime
-            )
+            if self.use_structured_thesis:
+                prompt = self.thesis_template.create_structured_prompt(
+                    symbol, technical_data, sentiment_data, alpha_signals, market_regime
+                )
+            else:
+                prompt = self.create_trading_prompt(
+                    symbol, technical_data, sentiment_data, alpha_signals, market_regime
+                )
             
             inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}

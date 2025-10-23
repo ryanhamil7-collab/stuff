@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 from datetime import datetime, timedelta
 from src.utils import log, config
 from src.backtesting import BacktestEngine
+from scipy.stats import norm
 
 class WalkForwardValidator:
     
