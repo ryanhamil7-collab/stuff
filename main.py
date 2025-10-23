@@ -7,11 +7,13 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 from src.utils import log, config
+from src.utils.validation import validate_no_lookahead
 from src.backtesting import BacktestEngine
 from src.agents import DataAgent
 from src.autopilot import AutopilotDaemon
+from src.strategies.benchmarks import BenchmarkStrategies
 
-def run_backtest(symbols=None, start_date=None, end_date=None):
+def run_backtest(symbols=None, start_date=None, end_date=None, no_lookahead_check=False, run_benchmarks=True):
     log.info("Starting backtest mode")
     
     if symbols is None:
@@ -37,12 +39,23 @@ def run_backtest(symbols=None, start_date=None, end_date=None):
         log.error("No data available for backtesting")
         return
     
-    log.info(f"Running backtest on {len(processed_data)} symbols...")
+    if not no_lookahead_check:
+        log.info("Validating data for lookahead bias...")
+        if not validate_no_lookahead(processed_data):
+            log.error("CRITICAL: Lookahead bias detected! Fix before proceeding.")
+            log.error("Use --no-lookahead-check to skip this validation (not recommended)")
+            return
+    
+    if run_benchmarks:
+        log.info("Running benchmark strategies for comparison...")
+        benchmarks = BenchmarkStrategies.run_all_benchmarks(processed_data, config.get('trading.initial_capital', 100000.0))
+    
+    log.info(f"Running AI trading system backtest on {len(processed_data)} symbols...")
     backtest_engine = BacktestEngine()
     result = backtest_engine.run_backtest(processed_data, start_date, end_date)
     
     log.info("=" * 80)
-    log.info("BACKTEST RESULTS")
+    log.info("BACKTEST RESULTS - AI TRADING SYSTEM")
     log.info("=" * 80)
     log.info(f"Initial Capital: ${result['initial_capital']:,.2f}")
     log.info(f"Final Capital: ${result['final_capital']:,.2f}")
@@ -54,6 +67,28 @@ def run_backtest(symbols=None, start_date=None, end_date=None):
     log.info(f"Total Trades: {result['num_trades']}")
     log.info(f"Profit Factor: {result['metrics'].get('profit_factor', 0):.2f}")
     log.info("=" * 80)
+    
+    if run_benchmarks and benchmarks:
+        log.info("")
+        log.info("=" * 80)
+        log.info("BENCHMARK COMPARISON")
+        log.info("=" * 80)
+        log.info(f"{'Strategy':<40} {'Return':<12} {'Sharpe':<10}")
+        log.info("-" * 80)
+        log.info(f"{'AI Trading System':<40} {result['total_return']:>10.2%}  {result['sharpe_ratio']:>8.2f}")
+        for benchmark in benchmarks:
+            log.info(f"{benchmark['strategy']:<40} {benchmark['total_return']:>10.2%}  {benchmark['sharpe_ratio']:>8.2f}")
+        log.info("=" * 80)
+        
+        ai_sharpe = result['sharpe_ratio']
+        best_benchmark_sharpe = max(b['sharpe_ratio'] for b in benchmarks)
+        
+        if ai_sharpe > best_benchmark_sharpe:
+            log.info(f"✓ AI system outperforms all benchmarks (Sharpe: {ai_sharpe:.2f} vs {best_benchmark_sharpe:.2f})")
+        else:
+            log.warning(f"⚠ AI system underperforms best benchmark (Sharpe: {ai_sharpe:.2f} vs {best_benchmark_sharpe:.2f})")
+            log.warning("Consider tuning parameters or checking for overfitting")
+        log.info("=" * 80)
     
     equity_curve = result['equity_curve']
     equity_curve.to_csv('data/backtest_equity_curve.csv', index=False)
@@ -182,6 +217,18 @@ Examples:
         help='End date for backtest (YYYY-MM-DD)'
     )
     
+    parser.add_argument(
+        '--no-lookahead-check',
+        action='store_true',
+        help='Skip lookahead bias validation (not recommended)'
+    )
+    
+    parser.add_argument(
+        '--no-benchmarks',
+        action='store_true',
+        help='Skip benchmark strategy comparison'
+    )
+    
     args = parser.parse_args()
     
     log.info("=" * 80)
@@ -192,7 +239,13 @@ Examples:
     
     try:
         if args.mode == 'backtest':
-            run_backtest(args.symbols, args.start_date, args.end_date)
+            run_backtest(
+                args.symbols, 
+                args.start_date, 
+                args.end_date,
+                args.no_lookahead_check,
+                not args.no_benchmarks
+            )
         
         elif args.mode == 'autopilot':
             run_autopilot()

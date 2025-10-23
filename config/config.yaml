@@ -70,6 +70,11 @@ llm:
     alpha: 32
     dropout: 0.1
     update_interval: 604800  # Weekly
+  
+  testing_models:
+    - "microsoft/DialoGPT-medium"
+    - "google/gemma-2b-it"
+    - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 rl:
   algorithm: "PPO"
@@ -113,9 +118,20 @@ risk:
 backtest:
   start_date: "2010-01-01"
   end_date: "2025-01-01"
-  commission: 0.001  # 0.1%
-  slippage: 0.0005  # 0.05%
+  commission: 0.0005  # 0.05% (5 bps per trade)
+  slippage: 0.001  # 0.1% (10 bps slippage)
   monte_carlo_runs: 100
+  
+  walk_forward:
+    enabled: false
+    train_window: 365  # 1 year training
+    test_window: 90    # 90 days testing
+    step_size: 90      # 90 days step forward
+  
+  validation:
+    lookahead_check: true
+    overfitting_threshold: 0.7  # val_sharpe < train_sharpe * 0.7 = overfitting
+    early_stopping: true
 
 metrics:
   target_sharpe: 1.5
