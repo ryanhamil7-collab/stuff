@@ -1,0 +1,181 @@
+
+trading:
+  initial_capital: 100000.0
+  max_position_size: 0.10  # Max 10% per symbol
+  stop_loss_pct: 0.02  # 2% stop loss
+  take_profit_pct: 0.05  # 5% take profit
+  max_positions: 10
+  min_volume: 1000000  # Minimum daily volume
+  min_volatility: 0.02  # Minimum 2% volatility
+  trading_hours:
+    start: "09:30"
+    end: "16:00"
+    timezone: "America/New_York"
+
+data:
+  primary_source: "yfinance"
+  backup_sources:
+    - "alpha_vantage"
+    - "finnhub"
+  update_interval: 300  # 5 minutes in seconds
+  historical_days: 365
+  
+symbols:
+  watchlists:
+    - "SP500"
+    - "NASDAQ100"
+  custom_symbols:
+    - "AAPL"
+    - "MSFT"
+    - "GOOGL"
+    - "NVDA"
+    - "TSLA"
+    - "META"
+    - "AMZN"
+    - "AMD"
+    - "NFLX"
+    - "COIN"
+  discovery:
+    enabled: true
+    scan_interval: 86400  # Daily
+    criteria:
+      min_volume: 1000000
+      min_price: 5.0
+      max_price: 1000.0
+      min_volatility: 0.02
+
+indicators:
+  sma_periods: [20, 50, 200]
+  ema_periods: [12, 26]
+  rsi_period: 14
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  bollinger:
+    period: 20
+    std: 2
+  atr_period: 14
+
+llm:
+  model_name: "mistralai/Mistral-7B-Instruct-v0.2"
+  quantization: "4bit"
+  max_length: 2048
+  temperature: 0.7
+  top_p: 0.9
+  fine_tune:
+    enabled: true
+    method: "lora"
+    rank: 8
+    alpha: 32
+    dropout: 0.1
+    update_interval: 604800  # Weekly
+
+rl:
+  algorithm: "PPO"
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  target_sharpe: 1.5
+
+genetic:
+  population_size: 50
+  generations: 100
+  mutation_rate: 0.2
+  crossover_rate: 0.8
+  tournament_size: 3
+  elitism: 0.1
+
+alpha:
+  num_alphas: 100
+  evaluation_metrics:
+    - "RankIC"
+    - "ICIR"
+    - "turnover"
+    - "diversity"
+  min_rankic: 0.02
+  max_turnover: 0.3
+
+risk:
+  max_drawdown: 0.20  # 20% max drawdown
+  position_sizing: "kelly"
+  kelly_fraction: 0.25  # Quarter Kelly
+  diversification: true
+  correlation_threshold: 0.7
+
+backtest:
+  start_date: "2010-01-01"
+  end_date: "2025-01-01"
+  commission: 0.001  # 0.1%
+  slippage: 0.0005  # 0.05%
+  monte_carlo_runs: 100
+
+metrics:
+  target_sharpe: 1.5
+  target_sortino: 2.0
+  max_drawdown: 0.20
+  min_win_rate: 0.55
+
+sentiment:
+  model: "ProsusAI/finbert"
+  news_sources:
+    - "finnhub"
+    - "alpha_vantage"
+  lookback_days: 7
+  sentiment_threshold: 0.1
+
+agents:
+  data_agent:
+    enabled: true
+    priority: 1
+  analysis_agent:
+    enabled: true
+    priority: 2
+  decision_agent:
+    enabled: true
+    priority: 3
+  optimization_agent:
+    enabled: true
+    priority: 4
+
+autopilot:
+  enabled: true
+  mode: "paper"  # paper or live (NEVER use live)
+  check_interval: 300  # 5 minutes
+  max_runtime: null  # null for continuous
+  
+database:
+  type: "sqlite"
+  path: "data/knowledge_base/trading.db"
+  vector_store: "faiss"
+  vector_dim: 768
+
+logging:
+  level: "INFO"
+  file: "logs/trading_system.log"
+  max_size: "100MB"
+  backup_count: 10
+
+dashboard:
+  enabled: true
+  port: 8501
+  host: "0.0.0.0"
+  refresh_interval: 60
+
+safety:
+  paper_trading_only: true
+  max_daily_trades: 100
+  max_daily_loss: 0.05  # 5% of capital
+  circuit_breaker: true
+  
+api_keys:
+  alpha_vantage: "${ALPHA_VANTAGE_API_KEY}"
+  finnhub: "${FINNHUB_API_KEY}"
+  huggingface: "${HUGGINGFACE_TOKEN}"
