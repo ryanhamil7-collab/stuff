@@ -96,3 +96,16 @@ QuantLib>=1.31
 auto-gptq>=0.7.0
 hmmlearn>=0.3.0
 jsonschema>=4.20.0
+
+# Quantum Computing (optional)
+pyquil>=3.5.0
+qiskit>=0.45.0
+
+# Federated Learning
+flwr>=1.6.0
+
+# Neuro-Symbolic AI
+pyswip>=0.2.10
+
+# Adversarial Training
+foolbox>=3.3.0
