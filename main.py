@@ -1,325 +1,267 @@
 #!/usr/bin/env python3
-"""
-Autonomous Trading System - Main Application
-Comprehensive trading system with 19 features.
-"""
 
-import os
+import argparse
 import sys
-import logging
-import yaml
 from pathlib import Path
-from typing import Dict, List, Optional
-from datetime import datetime, time as dt_time
-from dotenv import load_dotenv
 
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-except ImportError:
-    BackgroundScheduler = None
-    print("Warning: apscheduler not installed. Scheduling features disabled.")
+sys.path.append(str(Path(__file__).parent))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from src.utils import log, config
+from src.utils.validation import validate_no_lookahead
+from src.backtesting import BacktestEngine
+from src.agents import DataAgent
+from src.autopilot import AutopilotDaemon
+from src.strategies.benchmarks import BenchmarkStrategies
 
-
-class TradingSystem:
-    """Main trading system orchestrator."""
+def run_backtest(symbols=None, start_date=None, end_date=None, no_lookahead_check=False, run_benchmarks=True):
+    log.info("Starting backtest mode")
     
-    def __init__(self):
-        self.base_dir = Path(__file__).parent.absolute()
-        self.config = None
-        self.scheduler_config = None
-        self.scheduler = None
-        self.is_running = False
-        
-        self.load_environment()
-        self.load_configurations()
-        self.initialize_components()
+    if symbols is None:
+        symbols = config.get('symbols.custom_symbols', ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA'])
     
-    def load_environment(self) -> None:
-        """Load environment variables."""
-        env_file = self.base_dir / ".env"
-        if env_file.exists():
-            load_dotenv(env_file)
-            logger.info("Environment variables loaded")
-        else:
-            logger.warning(".env file not found - using defaults")
+    if start_date is None:
+        start_date = config.get('backtest.start_date', '2020-01-01')
     
-    def load_configurations(self) -> None:
-        """Load configuration files."""
-        config_dir = self.base_dir / "config"
-        
-        config_file = config_dir / "config.yaml"
-        if config_file.exists():
-            with open(config_file, 'r') as f:
-                self.config = yaml.safe_load(f)
-            logger.info("Main configuration loaded")
-        else:
-            logger.error(f"Config file not found: {config_file}")
-            self.config = self.get_default_config()
-        
-        scheduler_file = config_dir / "scheduler.yaml"
-        if scheduler_file.exists():
-            with open(scheduler_file, 'r') as f:
-                self.scheduler_config = yaml.safe_load(f)
-            logger.info("Scheduler configuration loaded")
-        else:
-            logger.error(f"Scheduler config not found: {scheduler_file}")
-            self.scheduler_config = self.get_default_scheduler_config()
+    if end_date is None:
+        end_date = config.get('backtest.end_date', '2025-01-01')
     
-    def get_default_config(self) -> Dict:
-        """Return default configuration."""
-        return {
-            'api': {
-                'alpaca': {
-                    'base_url': 'https://paper-api.alpaca.markets',
-                    'paper_trading': True
-                }
-            },
-            'trading': {
-                'mode': 'paper',
-                'symbols': ['AAPL', 'MSFT', 'GOOGL']
-            },
-            'features': {
-                'backtesting': True,
-                'paper_trading': True,
-                'risk_management': True
-            }
-        }
+    log.info(f"Backtesting symbols: {symbols}")
+    log.info(f"Date range: {start_date} to {end_date}")
     
-    def get_default_scheduler_config(self) -> Dict:
-        """Return default scheduler configuration."""
-        return {
-            'capital': {'initial': 1000},
-            'risk_management': {
-                'max_daily_loss': 0.02,
-                'stop_loss_percentage': 0.02
-            },
-            'kaggle': {
-                'keep_alive': True,
-                'keep_alive_interval': 300
-            }
-        }
+    data_agent = DataAgent()
+    log.info("Collecting market data...")
+    data = data_agent.collect_market_data(symbols)
     
-    def initialize_components(self) -> None:
-        """Initialize system components."""
-        logger.info("Initializing system components...")
-        
-        try:
-            from src.indicators.technical_indicators import TechnicalIndicators
-            self.indicators = TechnicalIndicators()
-            logger.info("✓ Technical indicators initialized")
-        except ImportError as e:
-            logger.error(f"Failed to import indicators: {e}")
-            self.indicators = None
-        
-        if BackgroundScheduler:
-            self.scheduler = BackgroundScheduler()
-            logger.info("✓ Scheduler initialized")
-        else:
-            logger.warning("✗ Scheduler not available (apscheduler not installed)")
-        
-        self.setup_data_manager()
-        self.setup_risk_manager()
-        self.setup_strategy_manager()
+    log.info("Processing data...")
+    processed_data = data_agent.process_data(data)
     
-    def setup_data_manager(self) -> None:
-        """Setup data management."""
-        logger.info("Setting up data manager...")
-        self.data_cache = {}
+    if not processed_data:
+        log.error("No data available for backtesting")
+        return
     
-    def setup_risk_manager(self) -> None:
-        """Setup risk management."""
-        logger.info("Setting up risk manager...")
-        risk_config = self.scheduler_config.get('risk_management', {})
-        self.max_daily_loss = risk_config.get('max_daily_loss', 0.02)
-        self.stop_loss_pct = risk_config.get('stop_loss_percentage', 0.02)
-    
-    def setup_strategy_manager(self) -> None:
-        """Setup strategy management."""
-        logger.info("Setting up strategy manager...")
-        self.active_strategies = []
-    
-    def fetch_market_data(self, symbol: str, period: str = "1mo") -> Optional[object]:
-        """Fetch market data for a symbol."""
-        try:
-            import yfinance as yf
-            logger.info(f"Fetching data for {symbol}...")
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period=period)
-            
-            if data.empty:
-                logger.warning(f"No data received for {symbol}")
-                return None
-            
-            logger.info(f"✓ Fetched {len(data)} bars for {symbol}")
-            return data
-        except Exception as e:
-            logger.error(f"Error fetching data for {symbol}: {e}")
-            return None
-    
-    def analyze_symbol(self, symbol: str) -> Dict:
-        """Analyze a symbol with technical indicators."""
-        logger.info(f"Analyzing {symbol}...")
-        
-        data = self.fetch_market_data(symbol)
-        if data is None or data.empty:
-            return {'symbol': symbol, 'status': 'error', 'message': 'No data'}
-        
-        if self.indicators:
-            try:
-                indicator_config = self.config.get('indicators', {})
-                data_with_indicators = self.indicators.calculate_all(data, indicator_config)
-                
-                latest = data_with_indicators.iloc[-1]
-                
-                analysis = {
-                    'symbol': symbol,
-                    'status': 'success',
-                    'timestamp': datetime.now().isoformat(),
-                    'price': float(latest['Close']),
-                    'indicators': {}
-                }
-                
-                if 'RSI' in data_with_indicators.columns:
-                    analysis['indicators']['RSI'] = float(latest['RSI'])
-                if 'MACD' in data_with_indicators.columns:
-                    analysis['indicators']['MACD'] = float(latest['MACD'])
-                if 'SMA_20' in data_with_indicators.columns:
-                    analysis['indicators']['SMA_20'] = float(latest['SMA_20'])
-                
-                logger.info(f"✓ Analysis complete for {symbol}")
-                return analysis
-                
-            except Exception as e:
-                logger.error(f"Error analyzing {symbol}: {e}")
-                return {'symbol': symbol, 'status': 'error', 'message': str(e)}
-        else:
-            return {'symbol': symbol, 'status': 'error', 'message': 'Indicators not available'}
-    
-    def run_backtest(self) -> None:
-        """Run backtesting on configured symbols."""
-        logger.info("=" * 60)
-        logger.info("Running Backtest")
-        logger.info("=" * 60)
-        
-        symbols = self.config.get('trading', {}).get('symbols', ['AAPL'])
-        
-        for symbol in symbols:
-            logger.info(f"\nBacktesting {symbol}...")
-            analysis = self.analyze_symbol(symbol)
-            
-            if analysis['status'] == 'success':
-                logger.info(f"Price: ${analysis['price']:.2f}")
-                if 'indicators' in analysis:
-                    for ind_name, ind_value in analysis['indicators'].items():
-                        logger.info(f"{ind_name}: {ind_value:.2f}")
-            else:
-                logger.error(f"Backtest failed for {symbol}: {analysis.get('message', 'Unknown error')}")
-        
-        logger.info("\n" + "=" * 60)
-        logger.info("Backtest Complete")
-        logger.info("=" * 60)
-    
-    def start_paper_trading(self) -> None:
-        """Start paper trading mode."""
-        logger.info("Starting paper trading mode...")
-        
-        api_key = os.getenv('ALPACA_API_KEY', '')
-        secret_key = os.getenv('ALPACA_SECRET_KEY', '')
-        
-        if not api_key or api_key == 'your_alpaca_api_key_here':
-            logger.warning("Alpaca API keys not configured!")
-            logger.warning("Paper trading requires valid API keys in .env file")
-            logger.info("Running in analysis-only mode...")
-            self.run_backtest()
+    if not no_lookahead_check:
+        log.info("Validating data for lookahead bias...")
+        if not validate_no_lookahead(processed_data):
+            log.error("CRITICAL: Lookahead bias detected! Fix before proceeding.")
+            log.error("Use --no-lookahead-check to skip this validation (not recommended)")
             return
-        
-        logger.info("Paper trading initialized with Alpaca API")
     
-    def schedule_tasks(self) -> None:
-        """Schedule periodic tasks."""
-        if not self.scheduler:
-            logger.warning("Scheduler not available - running in manual mode")
-            return
-        
-        logger.info("Scheduling tasks...")
-        
-        try:
-            self.scheduler.add_job(
-                self.run_backtest,
-                'interval',
-                minutes=60,
-                id='periodic_analysis'
-            )
-            logger.info("✓ Scheduled periodic analysis (every 60 minutes)")
-        except Exception as e:
-            logger.error(f"Error scheduling tasks: {e}")
+    if run_benchmarks:
+        log.info("Running benchmark strategies for comparison...")
+        benchmarks = BenchmarkStrategies.run_all_benchmarks(processed_data, config.get('trading.initial_capital', 100000.0))
     
-    def start(self) -> None:
-        """Start the trading system."""
-        logger.info("\n" + "=" * 60)
-        logger.info("AUTONOMOUS TRADING SYSTEM")
-        logger.info("=" * 60)
-        logger.info(f"Mode: {self.config.get('trading', {}).get('mode', 'paper')}")
-        logger.info(f"Symbols: {', '.join(self.config.get('trading', {}).get('symbols', []))}")
-        logger.info("=" * 60 + "\n")
-        
-        self.is_running = True
-        
-        features = self.config.get('features', {})
-        
-        if features.get('backtesting', True):
-            logger.info("Running initial backtest...")
-            self.run_backtest()
-        
-        if features.get('paper_trading', False):
-            self.start_paper_trading()
-        
-        if self.scheduler:
-            self.schedule_tasks()
-            self.scheduler.start()
-            logger.info("Scheduler started")
-        
-        logger.info("\n✓ System is running")
-        logger.info("Press Ctrl+C to stop\n")
+    log.info(f"Running AI trading system backtest on {len(processed_data)} symbols...")
+    backtest_engine = BacktestEngine()
+    result = backtest_engine.run_backtest(processed_data, start_date, end_date)
     
-    def stop(self) -> None:
-        """Stop the trading system."""
-        logger.info("Stopping trading system...")
-        self.is_running = False
+    log.info("=" * 80)
+    log.info("BACKTEST RESULTS - AI TRADING SYSTEM")
+    log.info("=" * 80)
+    log.info(f"Initial Capital: ${result['initial_capital']:,.2f}")
+    log.info(f"Final Capital: ${result['final_capital']:,.2f}")
+    log.info(f"Total Return: {result['total_return']:.2%}")
+    log.info(f"Sharpe Ratio: {result['sharpe_ratio']:.2f}")
+    log.info(f"Sortino Ratio: {result['metrics'].get('sortino_ratio', 0):.2f}")
+    log.info(f"Max Drawdown: {result['max_drawdown']:.2%}")
+    log.info(f"Win Rate: {result['win_rate']:.2%}")
+    log.info(f"Total Trades: {result['num_trades']}")
+    log.info(f"Profit Factor: {result['metrics'].get('profit_factor', 0):.2f}")
+    log.info("=" * 80)
+    
+    if run_benchmarks and benchmarks:
+        log.info("")
+        log.info("=" * 80)
+        log.info("BENCHMARK COMPARISON")
+        log.info("=" * 80)
+        log.info(f"{'Strategy':<40} {'Return':<12} {'Sharpe':<10}")
+        log.info("-" * 80)
+        log.info(f"{'AI Trading System':<40} {result['total_return']:>10.2%}  {result['sharpe_ratio']:>8.2f}")
+        for benchmark in benchmarks:
+            log.info(f"{benchmark['strategy']:<40} {benchmark['total_return']:>10.2%}  {benchmark['sharpe_ratio']:>8.2f}")
+        log.info("=" * 80)
         
-        if self.scheduler:
-            self.scheduler.shutdown()
-            logger.info("Scheduler stopped")
+        ai_sharpe = result['sharpe_ratio']
+        best_benchmark_sharpe = max(b['sharpe_ratio'] for b in benchmarks)
         
-        logger.info("System stopped")
+        if ai_sharpe > best_benchmark_sharpe:
+            log.info(f"✓ AI system outperforms all benchmarks (Sharpe: {ai_sharpe:.2f} vs {best_benchmark_sharpe:.2f})")
+        else:
+            log.warning(f"⚠ AI system underperforms best benchmark (Sharpe: {ai_sharpe:.2f} vs {best_benchmark_sharpe:.2f})")
+            log.warning("Consider tuning parameters or checking for overfitting")
+        log.info("=" * 80)
+    
+    equity_curve = result['equity_curve']
+    equity_curve.to_csv('data/backtest_equity_curve.csv', index=False)
+    log.info("Equity curve saved to data/backtest_equity_curve.csv")
+    
+    trade_history = result['trade_history']
+    if not trade_history.empty:
+        trade_history.to_csv('data/backtest_trade_history.csv', index=False)
+        log.info("Trade history saved to data/backtest_trade_history.csv")
 
+def run_autopilot():
+    log.info("Starting autopilot mode")
+    
+    mode = config.get('autopilot.mode', 'paper')
+    if mode != 'paper':
+        log.error("SAFETY CHECK FAILED: Only paper trading mode is allowed!")
+        log.error("Please set autopilot.mode to 'paper' in config/config.yaml")
+        sys.exit(1)
+    
+    log.info("=" * 80)
+    log.info("AUTONOMOUS TRADING SYSTEM - AUTOPILOT MODE")
+    log.info("=" * 80)
+    log.info("⚠️  PAPER TRADING ONLY - No real money at risk")
+    log.info("=" * 80)
+    
+    autopilot = AutopilotDaemon()
+    autopilot.run_continuous()
+
+def run_dashboard():
+    log.info("Starting dashboard")
+    
+    import subprocess
+    import os
+    
+    dashboard_path = Path(__file__).parent / "src" / "dashboard" / "app.py"
+    
+    port = config.get('dashboard.port', 8501)
+    host = config.get('dashboard.host', '0.0.0.0')
+    
+    log.info(f"Launching Streamlit dashboard at http://{host}:{port}")
+    
+    subprocess.run([
+        "streamlit", "run", str(dashboard_path),
+        "--server.port", str(port),
+        "--server.address", host
+    ])
+
+def run_single_cycle():
+    log.info("Running single trading cycle")
+    
+    data_agent = DataAgent()
+    log.info("Step 1: Collecting and processing market data...")
+    data_result = data_agent.run()
+    
+    if not data_result or not data_result.get('processed_data'):
+        log.error("No data collected")
+        return
+    
+    from src.agents import AnalysisAgent, DecisionAgent
+    from src.strategies.portfolio import Portfolio
+    
+    analysis_agent = AnalysisAgent()
+    decision_agent = DecisionAgent()
+    portfolio = Portfolio()
+    
+    log.info("Step 2: Analyzing market data...")
+    analysis_result = analysis_agent.run(
+        data_result['processed_data'],
+        data_result.get('news', {})
+    )
+    
+    log.info("Step 3: Making trading decisions...")
+    current_prices = {}
+    for symbol, df in data_result['processed_data'].items():
+        if len(df) > 0:
+            current_prices[symbol] = df.iloc[-1]['Close']
+    
+    decision_result = decision_agent.run(
+        analysis_result['signals'],
+        portfolio,
+        current_prices
+    )
+    
+    log.info("=" * 80)
+    log.info("TRADING CYCLE RESULTS")
+    log.info("=" * 80)
+    log.info(f"Symbols Analyzed: {len(data_result['processed_data'])}")
+    log.info(f"Signals Generated: {len(analysis_result['signals'])}")
+    log.info(f"Decisions Made: {len(decision_result['decisions'])}")
+    log.info(f"Trades Executed: {decision_result['execution']['num_executed']}")
+    log.info("=" * 80)
 
 def main():
-    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='Autonomous Trading System - LLM-Powered Algorithmic Trading',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python main.py backtest                    # Run backtest with default settings
+  python main.py backtest --symbols AAPL MSFT GOOGL
+  python main.py autopilot                   # Run in continuous autopilot mode
+  python main.py dashboard                   # Launch web dashboard
+  python main.py single                      # Run single trading cycle
+        """
+    )
+    
+    parser.add_argument(
+        'mode',
+        choices=['backtest', 'autopilot', 'dashboard', 'single'],
+        help='Operating mode'
+    )
+    
+    parser.add_argument(
+        '--symbols',
+        nargs='+',
+        help='List of symbols to trade (for backtest mode)'
+    )
+    
+    parser.add_argument(
+        '--start-date',
+        help='Start date for backtest (YYYY-MM-DD)'
+    )
+    
+    parser.add_argument(
+        '--end-date',
+        help='End date for backtest (YYYY-MM-DD)'
+    )
+    
+    parser.add_argument(
+        '--no-lookahead-check',
+        action='store_true',
+        help='Skip lookahead bias validation (not recommended)'
+    )
+    
+    parser.add_argument(
+        '--no-benchmarks',
+        action='store_true',
+        help='Skip benchmark strategy comparison'
+    )
+    
+    args = parser.parse_args()
+    
+    log.info("=" * 80)
+    log.info("AUTONOMOUS TRADING SYSTEM")
+    log.info("=" * 80)
+    log.info(f"Mode: {args.mode}")
+    log.info("=" * 80)
+    
     try:
-        system = TradingSystem()
-        system.start()
+        if args.mode == 'backtest':
+            run_backtest(
+                args.symbols, 
+                args.start_date, 
+                args.end_date,
+                args.no_lookahead_check,
+                not args.no_benchmarks
+            )
         
-        import time
-        while system.is_running:
-            time.sleep(1)
-            
+        elif args.mode == 'autopilot':
+            run_autopilot()
+        
+        elif args.mode == 'dashboard':
+            run_dashboard()
+        
+        elif args.mode == 'single':
+            run_single_cycle()
+    
     except KeyboardInterrupt:
-        logger.info("\nReceived interrupt signal")
-        if 'system' in locals():
-            system.stop()
+        log.info("\nReceived interrupt signal, shutting down...")
+    
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
+        log.error(f"Error: {str(e)}", exc_info=True)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

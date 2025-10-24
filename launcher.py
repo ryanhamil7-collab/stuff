@@ -1,301 +1,632 @@
 #!/usr/bin/env python3
 """
-Autonomous Trading System Launcher
-Robust launcher with error handling for Kaggle/Colab compatibility.
+Set-and-Forget Launcher for Autonomous Trading System
+
+Fully automated 24/7 launcher with market-aware scheduling:
+- Wakes up at 9:25 AM ET Monday-Friday for trading
+- Stops trading at 4:00 PM ET (market close)
+- Runs offline research 6:00 PM - 6:00 AM ET
+- Zero human input after initial launch
+
+Usage:
+    python launcher.py --set-and-forget --capital 500
+    python launcher.py --daemon  # Run as background daemon
 """
 
+import argparse
+import logging
 import os
+import signal
+import subprocess
 import sys
 import time
-import logging
+from datetime import datetime, time as dt_time
 from pathlib import Path
 from typing import Optional
 
+import pytz
+import yaml
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/launcher.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 
 
-class SystemLauncher:
-    """Launcher with comprehensive error handling and environment setup."""
+class TradingSystemLauncher:
+    """Automated launcher for 24/7 trading system operation"""
     
-    def __init__(self):
-        self.base_dir = Path(__file__).parent.absolute()
-        self.config_dir = self.base_dir / "config"
-        self.src_dir = self.base_dir / "src"
-        self.data_dir = self.base_dir / "data"
-        self.logs_dir = self.base_dir / "logs"
+    def __init__(self, config_path: str = "config/scheduler.yaml", capital: float = 100000.0):
+        """Initialize launcher with configuration
         
-    def check_python_version(self) -> bool:
-        """Check if Python version is compatible."""
-        version = sys.version_info
-        logger.info(f"Python version: {version.major}.{version.minor}.{version.micro}")
+        Args:
+            config_path: Path to scheduler configuration file
+            capital: Initial trading capital
+        """
+        self.config_path = config_path
+        self.capital = capital
+        self.config = self._load_config()
+        self.scheduler = BackgroundScheduler(timezone=pytz.timezone('America/New_York'))
+        self.trading_process: Optional[subprocess.Popen] = None
+        self.research_process: Optional[subprocess.Popen] = None
+        self.dashboard_process: Optional[subprocess.Popen] = None
+        self.discovery_engine = None
+        self.auto_discovery_manager = None
+        self.p2p_node = None
+        self.running = False
         
-        if version.major < 3 or (version.major == 3 and version.minor < 10):
-            logger.error("Python 3.10 or higher is required!")
-            logger.error(f"Current version: {version.major}.{version.minor}.{version.micro}")
-            return False
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
         
-        if version.major == 3 and version.minor > 12:
-            logger.warning(f"Python {version.major}.{version.minor} is newer than tested. May have compatibility issues.")
-        
-        return True
+        logger.info(f"Launcher initialized with capital: ${capital:,.2f}")
     
-    def create_directories(self) -> None:
-        """Create necessary directories if they don't exist."""
-        directories = [
-            self.config_dir,
-            self.data_dir,
-            self.logs_dir,
-            self.base_dir / "backtest_results"
+    def _load_config(self) -> dict:
+        """Load scheduler configuration"""
+        try:
+            with open(self.config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            logger.info(f"Loaded configuration from {self.config_path}")
+            return config
+        except FileNotFoundError:
+            logger.warning(f"Config file not found: {self.config_path}, using defaults")
+            return self._default_config()
+    
+    def _default_config(self) -> dict:
+        """Default configuration if file not found"""
+        return {
+            'scheduler': {
+                'timezone': 'America/New_York',
+                'trading': {
+                    'enabled': True,
+                    'wake_time': '09:25',  # 5 min before market open
+                    'close_time': '16:00',  # Market close
+                    'days': 'mon-fri'
+                },
+                'offline_research': {
+                    'enabled': True,
+                    'start_time': '18:00',  # 6 PM ET
+                    'end_time': '06:00',    # 6 AM ET
+                    'quantum_enabled': True,
+                    'evolve_alphas': 2000,
+                    'monte_carlo_runs': 5000,
+                    'adversarial_enabled': True
+                },
+                'dashboard': {
+                    'enabled': True,
+                    'refresh_interval': 300  # 5 minutes
+                }
+            },
+            'symbol_discovery': {
+                'enabled': True,
+                'mode': 'realtime',
+                'frequency_minutes': 15,
+                'max_symbols': 20,
+                'include_crypto': True,
+                'include_options': True,
+                'hive_broadcast': True
+            },
+            'hive_mind': {
+                'enabled': False,
+                'peers': [],
+                'port': 50051,
+                'discovery_enabled': False
+            }
+        }
+    
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals gracefully"""
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.stop()
+        sys.exit(0)
+    
+    def start_trading(self):
+        """Start autopilot trading with all 15 advanced features"""
+        if self.trading_process and self.trading_process.poll() is None:
+            logger.warning("Trading already running, skipping start")
+            return
+        
+        logger.info("🚀 Starting trading autopilot with all features...")
+        
+        cmd = [
+            sys.executable, 'main.py', 'autopilot',
+            '--strategy-horizon', 'hybrid',
+            '--capital', str(self.capital),
+            '--paper',
+            '--quantum',
+            '--federated',
+            '--neuro-symbolic',
+            '--external-data',
+            '--adversarial',
+            '--ensemble',
+            '--dynamic-costs',
+            '--walk-forward',
+            '--monte-carlo', '1000'
         ]
         
-        for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Directory ensured: {directory}")
-    
-    def check_config_files(self) -> bool:
-        """Check and create config files if missing."""
-        config_file = self.config_dir / "config.yaml"
-        scheduler_file = self.config_dir / "scheduler.yaml"
-        env_file = self.base_dir / ".env"
-        
-        all_exist = True
-        
-        if not config_file.exists():
-            logger.warning(f"Missing config file: {config_file}")
-            logger.info("Creating default config.yaml...")
-            self.create_default_config()
-            all_exist = False
-        
-        if not scheduler_file.exists():
-            logger.warning(f"Missing scheduler file: {scheduler_file}")
-            logger.info("Creating default scheduler.yaml...")
-            self.create_default_scheduler()
-            all_exist = False
-        
-        if not env_file.exists():
-            logger.warning(f"Missing .env file: {env_file}")
-            logger.info("Creating .env from .env.example...")
-            self.create_env_file()
-            all_exist = False
-        
-        return all_exist
-    
-    def create_default_config(self) -> None:
-        """Create default config.yaml if missing."""
-        default_config = """# Main Configuration for Autonomous Trading System
-
-api:
-  alpaca:
-    base_url: "https://paper-api.alpaca.markets"
-    api_key: "${ALPACA_API_KEY}"
-    secret_key: "${ALPACA_SECRET_KEY}"
-    paper_trading: true
-
-trading:
-  mode: "paper"
-  symbols:
-    - "AAPL"
-    - "MSFT"
-    - "GOOGL"
-
-dashboard:
-  enabled: true
-  port: 5000
-  host: "0.0.0.0"
-
-features:
-  backtesting: true
-  paper_trading: true
-  risk_management: true
-"""
-        config_file = self.config_dir / "config.yaml"
-        config_file.write_text(default_config)
-        logger.info(f"Created default config: {config_file}")
-    
-    def create_default_scheduler(self) -> None:
-        """Create default scheduler.yaml if missing."""
-        default_scheduler = """# Scheduler Configuration
-
-market_hours:
-  start: "09:30"
-  end: "16:00"
-  timezone: "America/New_York"
-
-hive_mind:
-  enabled: false
-
-capital:
-  initial: 1000
-
-symbol_discovery:
-  enabled: true
-  max_symbols: 50
-
-risk_management:
-  max_daily_loss: 0.02
-  stop_loss_percentage: 0.02
-
-kaggle:
-  keep_alive: true
-  keep_alive_interval: 300
-"""
-        scheduler_file = self.config_dir / "scheduler.yaml"
-        scheduler_file.write_text(default_scheduler)
-        logger.info(f"Created default scheduler: {scheduler_file}")
-    
-    def create_env_file(self) -> None:
-        """Create .env file from example."""
-        env_example = self.base_dir / ".env.example"
-        env_file = self.base_dir / ".env"
-        
-        if env_example.exists():
-            import shutil
-            shutil.copy(env_example, env_file)
-            logger.info(f"Created .env from .env.example")
-        else:
-            default_env = """ALPACA_API_KEY=your_alpaca_api_key_here
-ALPACA_SECRET_KEY=your_alpaca_secret_key_here
-TRADING_MODE=paper
-INITIAL_CAPITAL=1000
-LOG_LEVEL=INFO
-KAGGLE_MODE=true
-"""
-            env_file.write_text(default_env)
-            logger.info(f"Created default .env file")
-        
-        logger.warning("Please update .env with your actual API keys!")
-    
-    def check_dependencies(self) -> bool:
-        """Check if required dependencies are installed."""
-        required_modules = [
-            'pandas',
-            'numpy',
-            'yfinance',
-            'yaml',
-            'dotenv',
-            'flask',
-            'apscheduler',
-        ]
-        
-        missing_modules = []
-        
-        for module in required_modules:
-            try:
-                if module == 'yaml':
-                    __import__('yaml')
-                elif module == 'dotenv':
-                    __import__('dotenv')
-                else:
-                    __import__(module)
-                logger.info(f"✓ {module} is installed")
-            except ImportError:
-                logger.error(f"✗ {module} is NOT installed")
-                missing_modules.append(module)
-        
-        if missing_modules:
-            logger.error(f"\nMissing dependencies: {', '.join(missing_modules)}")
-            logger.error("Please run: pip install -r requirements.txt")
-            return False
-        
         try:
-            import pandas_ta
-            logger.info("✓ pandas_ta is installed")
-        except ImportError:
-            logger.warning("✗ pandas_ta is NOT installed (optional but recommended)")
-            logger.warning("Install with: pip install pandas-ta==0.3.14b0")
-        
-        return True
-    
-    def setup_kaggle_environment(self) -> None:
-        """Setup Kaggle-specific environment settings."""
-        if os.getenv('KAGGLE_MODE', 'false').lower() == 'true':
-            logger.info("Kaggle mode detected - applying optimizations...")
-            
-            os.environ['MPLBACKEND'] = 'Agg'
-            
-            if os.getenv('KEEP_ALIVE', 'false').lower() == 'true':
-                logger.info("Keep-alive mode enabled")
-    
-    def keep_alive_loop(self) -> None:
-        """Keep Kaggle/Colab session alive."""
-        if os.getenv('KEEP_ALIVE', 'false').lower() == 'true':
-            interval = int(os.getenv('KEEP_ALIVE_INTERVAL', '300'))
-            logger.info(f"Starting keep-alive loop (interval: {interval}s)")
-            
-            try:
-                while True:
-                    time.sleep(interval)
-                    logger.info("Keep-alive ping...")
-            except KeyboardInterrupt:
-                logger.info("Keep-alive loop stopped")
-    
-    def launch(self) -> bool:
-        """Main launch sequence."""
-        logger.info("=" * 60)
-        logger.info("Autonomous Trading System Launcher")
-        logger.info("=" * 60)
-        
-        if not self.check_python_version():
-            return False
-        
-        logger.info("\n[1/5] Creating directories...")
-        self.create_directories()
-        
-        logger.info("\n[2/5] Checking configuration files...")
-        self.check_config_files()
-        
-        logger.info("\n[3/5] Checking dependencies...")
-        if not self.check_dependencies():
-            logger.error("\nSetup incomplete. Please install missing dependencies.")
-            return False
-        
-        logger.info("\n[4/5] Setting up environment...")
-        self.setup_kaggle_environment()
-        
-        logger.info("\n[5/5] Launching main application...")
-        
-        try:
-            sys.path.insert(0, str(self.base_dir))
-            
-            from main import TradingSystem
-            
-            logger.info("Initializing trading system...")
-            system = TradingSystem()
-            
-            logger.info("Starting trading system...")
-            system.start()
-            
-            if os.getenv('KEEP_ALIVE', 'false').lower() == 'true':
-                self.keep_alive_loop()
-            
-            return True
-            
-        except ImportError as e:
-            logger.error(f"Import error: {e}")
-            logger.error("Make sure all source files are present in the src/ directory")
-            return False
+            self.trading_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+            logger.info(f"Trading process started (PID: {self.trading_process.pid})")
         except Exception as e:
-            logger.error(f"Launch error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Failed to start trading: {e}")
+    
+    def stop_trading(self):
+        """Gracefully stop trading at market close"""
+        if not self.trading_process or self.trading_process.poll() is not None:
+            logger.info("Trading not running, nothing to stop")
+            return
+        
+        logger.info("🛑 Stopping trading at market close...")
+        
+        try:
+            self.trading_process.terminate()
+            
+            try:
+                self.trading_process.wait(timeout=30)
+                logger.info("Trading stopped gracefully")
+            except subprocess.TimeoutExpired:
+                logger.warning("Trading didn't stop gracefully, forcing kill")
+                self.trading_process.kill()
+                self.trading_process.wait()
+            
+            self.trading_process = None
+        except Exception as e:
+            logger.error(f"Error stopping trading: {e}")
+    
+    def start_offline_research(self):
+        """Start offline research with quantum optimization"""
+        if self.research_process and self.research_process.poll() is None:
+            logger.warning("Research already running, skipping start")
+            return
+        
+        config = self.config['scheduler']['offline_research']
+        
+        logger.info("🌙 Starting offline research (sleep mode)...")
+        
+        cmd = [
+            sys.executable, 'main.py', 'offline-research',
+            '--quantum',
+            '--evolve-alphas', str(config['evolve_alphas']),
+            '--monte-carlo', str(config['monte_carlo_runs'])
+        ]
+        
+        if config['adversarial_enabled']:
+            cmd.append('--adversarial')
+        
+        if self.config['hive_mind']['enabled']:
+            cmd.extend(['--hive-mind', '--sync-peers'])
+        
+        try:
+            self.research_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+            logger.info(f"Research process started (PID: {self.research_process.pid})")
+        except Exception as e:
+            logger.error(f"Failed to start research: {e}")
+    
+    def stop_offline_research(self):
+        """Stop offline research in the morning"""
+        if not self.research_process or self.research_process.poll() is not None:
+            logger.info("Research not running, nothing to stop")
+            return
+        
+        logger.info("☀️ Stopping offline research (wake up)...")
+        
+        try:
+            self.research_process.terminate()
+            
+            try:
+                self.research_process.wait(timeout=60)
+                logger.info("Research stopped gracefully")
+            except subprocess.TimeoutExpired:
+                logger.warning("Research didn't stop gracefully, forcing kill")
+                self.research_process.kill()
+                self.research_process.wait()
+            
+            self.research_process = None
+        except Exception as e:
+            logger.error(f"Error stopping research: {e}")
+    
+    def start_dashboard(self):
+        """Start Streamlit dashboard"""
+        if self.dashboard_process and self.dashboard_process.poll() is None:
+            logger.info("Dashboard already running")
+            return
+        
+        if not self.config['scheduler']['dashboard']['enabled']:
+            return
+        
+        logger.info("📊 Starting dashboard...")
+        
+        cmd = [sys.executable, 'main.py', 'dashboard']
+        
+        try:
+            self.dashboard_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            logger.info(f"Dashboard started (PID: {self.dashboard_process.pid})")
+            logger.info("Dashboard available at http://localhost:8501")
+        except Exception as e:
+            logger.error(f"Failed to start dashboard: {e}")
+    
+    def refresh_dashboard(self):
+        """Refresh dashboard (restart if needed)"""
+        if self.dashboard_process and self.dashboard_process.poll() is None:
+            return  # Already running
+        
+        logger.info("Refreshing dashboard...")
+        self.start_dashboard()
+    
+    def start_auto_discovery(self):
+        """Start automatic P2P peer discovery"""
+        hive_config = self.config.get('hive_mind', {})
+        
+        if not hive_config.get('enabled', False):
+            return
+        
+        auto_discovery_config = hive_config.get('network', {}).get('auto_discovery', {})
+        
+        if not auto_discovery_config.get('enabled', False):
+            logger.info("Auto-discovery disabled, using manual peer list")
+            return
+        
+        try:
+            from src.hive_mind.auto_discovery import AutoDiscoveryManager
+            
+            self.auto_discovery_manager = AutoDiscoveryManager(
+                port=hive_config['network']['port'],
+                enable_mdns=auto_discovery_config.get('mdns_enabled', True),
+                enable_nostr=auto_discovery_config.get('nostr_enabled', False),
+                enable_bootstrap=auto_discovery_config.get('bootstrap_enabled', True),
+                bootstrap_nodes=auto_discovery_config.get('bootstrap_nodes', []),
+                nostr_relays=auto_discovery_config.get('nostr_relays', []),
+                max_peers=auto_discovery_config.get('max_peers', 100)
+            )
+            
+            def on_peer_discovered(peer):
+                logger.info(f"🔗 Auto-discovered peer: {peer.node_id} at {peer.host}:{peer.port}")
+                if self.p2p_node:
+                    self.p2p_node.connect_to_peer(f"{peer.host}:{peer.port}")
+            
+            def on_peer_lost(node_id):
+                logger.info(f"❌ Lost peer: {node_id}")
+            
+            self.auto_discovery_manager.on_peer_discovered = on_peer_discovered
+            self.auto_discovery_manager.on_peer_lost = on_peer_lost
+            
+            self.auto_discovery_manager.start()
+            
+            logger.info("✅ Auto-discovery started - scanning for peers...")
+            
+        except Exception as e:
+            logger.error(f"Failed to start auto-discovery: {e}")
+    
+    def stop_auto_discovery(self):
+        """Stop automatic P2P peer discovery"""
+        if self.auto_discovery_manager:
+            try:
+                self.auto_discovery_manager.stop()
+                logger.info("Auto-discovery stopped")
+            except Exception as e:
+                logger.error(f"Error stopping auto-discovery: {e}")
+    
+    def run_symbol_discovery(self):
+        """Run real-time symbol discovery"""
+        if not self.config.get('symbol_discovery', {}).get('enabled', False):
+            return
+        
+        if not self.check_market_hours():
+            logger.debug("Outside market hours, skipping symbol discovery")
+            return
+        
+        try:
+            if not self.discovery_engine:
+                from src.agents.symbol_discovery import SymbolDiscoveryV2
+                
+                hive_mind = None
+                if self.config.get('hive_mind', {}).get('enabled', False):
+                    from src.hive_mind import P2PNode
+                    hive_mind = P2PNode(self.config['hive_mind'])
+                
+                self.discovery_engine = SymbolDiscoveryV2(hive_mind=hive_mind)
+                logger.info("Symbol discovery engine initialized")
+            
+            logger.info("🔍 Running real-time symbol discovery...")
+            discoveries = self.discovery_engine.discover_symbols_realtime()
+            
+            if discoveries:
+                logger.info(f"Discovered {len(discoveries)} high-potential symbols:")
+                for i, d in enumerate(discoveries[:5], 1):
+                    logger.info(f"  {i}. {d['symbol']} (score: {d['score']:.2f}, class: {d['asset_class']})")
+            else:
+                logger.info("No high-potential symbols discovered this cycle")
+                
+        except Exception as e:
+            logger.error(f"Symbol discovery failed: {e}")
+    
+    def check_market_hours(self) -> bool:
+        """Check if currently in market hours (9:30 AM - 4:00 PM ET, Mon-Fri)"""
+        now = datetime.now(pytz.timezone('America/New_York'))
+        
+        if now.weekday() >= 5:  # Saturday=5, Sunday=6
             return False
+        
+        market_open = dt_time(9, 30)
+        market_close = dt_time(16, 0)
+        current_time = now.time()
+        
+        return market_open <= current_time <= market_close
+    
+    def check_research_hours(self) -> bool:
+        """Check if currently in research hours (6:00 PM - 6:00 AM ET)"""
+        now = datetime.now(pytz.timezone('America/New_York'))
+        current_time = now.time()
+        
+        research_start = dt_time(18, 0)  # 6 PM
+        research_end = dt_time(6, 0)     # 6 AM
+        
+        if current_time >= research_start or current_time <= research_end:
+            return True
+        return False
+    
+    def setup_schedule(self):
+        """Setup automated schedule for trading and research"""
+        config = self.config['scheduler']
+        
+        if config['trading']['enabled']:
+            wake_time = config['trading']['wake_time']
+            self.scheduler.add_job(
+                self.start_trading,
+                CronTrigger(
+                    day_of_week='mon-fri',
+                    hour=int(wake_time.split(':')[0]),
+                    minute=int(wake_time.split(':')[1]),
+                    timezone='America/New_York'
+                ),
+                id='start_trading',
+                name='Start Trading',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled trading start: {wake_time} ET (Mon-Fri)")
+            
+            close_time = config['trading']['close_time']
+            self.scheduler.add_job(
+                self.stop_trading,
+                CronTrigger(
+                    day_of_week='mon-fri',
+                    hour=int(close_time.split(':')[0]),
+                    minute=int(close_time.split(':')[1]),
+                    timezone='America/New_York'
+                ),
+                id='stop_trading',
+                name='Stop Trading',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled trading stop: {close_time} ET (Mon-Fri)")
+        
+        if config['offline_research']['enabled']:
+            start_time = config['offline_research']['start_time']
+            self.scheduler.add_job(
+                self.start_offline_research,
+                CronTrigger(
+                    hour=int(start_time.split(':')[0]),
+                    minute=int(start_time.split(':')[1]),
+                    timezone='America/New_York'
+                ),
+                id='start_research',
+                name='Start Offline Research',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled research start: {start_time} ET (daily)")
+            
+            end_time = config['offline_research']['end_time']
+            self.scheduler.add_job(
+                self.stop_offline_research,
+                CronTrigger(
+                    hour=int(end_time.split(':')[0]),
+                    minute=int(end_time.split(':')[1]),
+                    timezone='America/New_York'
+                ),
+                id='stop_research',
+                name='Stop Offline Research',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled research stop: {end_time} ET (daily)")
+        
+        if config['dashboard']['enabled']:
+            refresh_interval = config['dashboard']['refresh_interval']
+            self.scheduler.add_job(
+                self.refresh_dashboard,
+                'interval',
+                seconds=refresh_interval,
+                id='refresh_dashboard',
+                name='Refresh Dashboard',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled dashboard refresh: every {refresh_interval}s")
+        
+        if self.config.get('symbol_discovery', {}).get('enabled', False):
+            discovery_config = self.config['symbol_discovery']
+            frequency_minutes = discovery_config.get('frequency_minutes', 15)
+            self.scheduler.add_job(
+                self.run_symbol_discovery,
+                'interval',
+                minutes=frequency_minutes,
+                id='symbol_discovery',
+                name='Symbol Discovery',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled symbol discovery: every {frequency_minutes} minutes")
+    
+    def start(self):
+        """Start the automated launcher"""
+        logger.info("=" * 80)
+        logger.info("🤖 AUTONOMOUS TRADING SYSTEM - SET AND FORGET LAUNCHER")
+        logger.info("=" * 80)
+        logger.info(f"Capital: ${self.capital:,.2f}")
+        logger.info(f"Timezone: America/New_York (ET)")
+        logger.info(f"Hive Mind: {'Enabled' if self.config['hive_mind']['enabled'] else 'Disabled'}")
+        logger.info("=" * 80)
+        
+        Path('logs').mkdir(exist_ok=True)
+        
+        self.setup_schedule()
+        
+        self.start_auto_discovery()
+        
+        self.start_dashboard()
+        
+        if self.check_market_hours():
+            logger.info("Currently in market hours, starting trading...")
+            self.start_trading()
+        elif self.check_research_hours():
+            logger.info("Currently in research hours, starting research...")
+            self.start_offline_research()
+        else:
+            logger.info("Outside trading/research hours, waiting for next scheduled event...")
+        
+        self.scheduler.start()
+        self.running = True
+        
+        logger.info("✅ Launcher started successfully!")
+        logger.info("Press Ctrl+C to stop")
+        
+        try:
+            while self.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Keyboard interrupt received")
+            self.stop()
+    
+    def stop(self):
+        """Stop all processes and scheduler"""
+        logger.info("Stopping launcher...")
+        
+        self.running = False
+        
+        self.stop_trading()
+        self.stop_offline_research()
+        self.stop_auto_discovery()
+        
+        if self.dashboard_process:
+            try:
+                self.dashboard_process.terminate()
+                self.dashboard_process.wait(timeout=10)
+            except:
+                pass
+        
+        if self.scheduler.running:
+            self.scheduler.shutdown(wait=False)
+        
+        logger.info("✅ Launcher stopped")
+    
+    def status(self):
+        """Print current status"""
+        now = datetime.now(pytz.timezone('America/New_York'))
+        
+        print("\n" + "=" * 80)
+        print("📊 LAUNCHER STATUS")
+        print("=" * 80)
+        print(f"Current Time: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"Capital: ${self.capital:,.2f}")
+        print()
+        
+        trading_running = self.trading_process and self.trading_process.poll() is None
+        print(f"Trading: {'🟢 RUNNING' if trading_running else '🔴 STOPPED'}")
+        if trading_running:
+            print(f"  PID: {self.trading_process.pid}")
+        
+        research_running = self.research_process and self.research_process.poll() is None
+        print(f"Research: {'🟢 RUNNING' if research_running else '🔴 STOPPED'}")
+        if research_running:
+            print(f"  PID: {self.research_process.pid}")
+        
+        dashboard_running = self.dashboard_process and self.dashboard_process.poll() is None
+        print(f"Dashboard: {'🟢 RUNNING' if dashboard_running else '🔴 STOPPED'}")
+        if dashboard_running:
+            print(f"  PID: {self.dashboard_process.pid}")
+            print(f"  URL: http://localhost:8501")
+        
+        print()
+        
+        print("Scheduled Jobs:")
+        for job in self.scheduler.get_jobs():
+            next_run = job.next_run_time
+            if next_run:
+                print(f"  {job.name}: {next_run.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        
+        print("=" * 80)
+        print()
 
 
 def main():
-    """Entry point."""
-    launcher = SystemLauncher()
-    success = launcher.launch()
+    """Main entry point"""
+    parser = argparse.ArgumentParser(
+        description='Set-and-Forget Launcher for Autonomous Trading System'
+    )
+    parser.add_argument(
+        '--set-and-forget',
+        action='store_true',
+        help='Run in fully automated mode (24/7)'
+    )
+    parser.add_argument(
+        '--daemon',
+        action='store_true',
+        help='Run as background daemon'
+    )
+    parser.add_argument(
+        '--capital',
+        type=float,
+        default=100000.0,
+        help='Initial trading capital (default: 100000)'
+    )
+    parser.add_argument(
+        '--config',
+        type=str,
+        default='config/scheduler.yaml',
+        help='Path to scheduler config file'
+    )
+    parser.add_argument(
+        '--status',
+        action='store_true',
+        help='Show current status and exit'
+    )
     
-    if not success:
-        logger.error("\nLaunch failed. Please check the errors above.")
-        sys.exit(1)
+    args = parser.parse_args()
     
-    logger.info("\nSystem launched successfully!")
+    launcher = TradingSystemLauncher(
+        config_path=args.config,
+        capital=args.capital
+    )
+    
+    if args.status:
+        launcher.status()
+        return
+    
+    if args.daemon:
+        logger.info("Running in daemon mode...")
+    
+    launcher.start()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -1,99 +1,271 @@
 
-api:
-  alpaca:
-    base_url: "https://paper-api.alpaca.markets"
-    api_key: "${ALPACA_API_KEY}"
-    secret_key: "${ALPACA_SECRET_KEY}"
-    paper_trading: true
-
 trading:
-  mode: "paper"
-  symbols:
+  initial_capital: 100000.0
+  max_position_size: 0.10  # Max 10% per symbol
+  stop_loss_pct: 0.02  # 2% stop loss
+  take_profit_pct: 0.05  # 5% take profit
+  max_positions: 10
+  min_volume: 1000000  # Minimum daily volume
+  min_volatility: 0.02  # Minimum 2% volatility
+  trading_hours:
+    start: "09:30"
+    end: "16:00"
+    timezone: "America/New_York"
+
+data:
+  primary_source: "yfinance"
+  backup_sources:
+    - "alpha_vantage"
+    - "finnhub"
+  update_interval: 300  # 5 minutes in seconds
+  historical_days: 365
+  
+  multimodal:
+    enabled: true
+    cache_embeddings: true
+    vector_store: "faiss"
+  
+symbols:
+  watchlists:
+    - "SP500"
+    - "NASDAQ100"
+  custom_symbols:
     - "AAPL"
     - "MSFT"
     - "GOOGL"
-    - "AMZN"
+    - "NVDA"
     - "TSLA"
-  
-  strategies:
-    - name: "momentum"
-      enabled: true
-      weight: 0.3
-    - name: "mean_reversion"
-      enabled: true
-      weight: 0.3
-    - name: "breakout"
-      enabled: true
-      weight: 0.2
-    - name: "trend_following"
-      enabled: true
-      weight: 0.2
+    - "META"
+    - "AMZN"
+    - "AMD"
+    - "NFLX"
+    - "COIN"
+  discovery:
+    enabled: true
+    scan_interval: 86400  # Daily
+    criteria:
+      min_volume: 1000000
+      min_price: 5.0
+      max_price: 1000.0
+      min_volatility: 0.02
 
 indicators:
-  sma:
-    periods: [20, 50, 200]
-  ema:
-    periods: [12, 26]
-  rsi:
-    period: 14
+  sma_periods: [20, 50, 200]
+  ema_periods: [12, 26]
+  rsi_period: 14
   macd:
     fast: 12
     slow: 26
     signal: 9
-  bollinger_bands:
+  bollinger:
     period: 20
-    std_dev: 2
-  atr:
-    period: 14
-  adx:
-    period: 14
-  stochastic:
-    k_period: 14
-    d_period: 3
-  obv: {}
-  vwap: {}
+    std: 2
+  atr_period: 14
+
+llm:
+  model_name: "mistralai/Mistral-7B-Instruct-v0.2"
+  quantization: "4bit"
+  max_length: 2048
+  temperature: 0.7
+  top_p: 0.9
+  use_structured_thesis: true
+  compress_after_training: false
+  
+  fine_tune:
+    enabled: true
+    method: "lora"
+    rank: 8
+    alpha: 32
+    dropout: 0.1
+    update_interval: 604800  # Weekly
+  
+  testing_models:
+    - "microsoft/DialoGPT-medium"
+    - "google/gemma-2b-it"
+    - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+rl:
+  algorithm: "PPO"  # Options: PPO, PPO_GRPO
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  target_sharpe: 1.5
+  
+  grpo:
+    enabled: false
+    group_size: 4
+    oracle_weight: 0.3
+    volatility_penalty: 0.5
+    reference_model: null  # Optional: "meta-llama/Meta-Llama-3.1-70B-Instruct"
+
+genetic:
+  population_size: 50
+  generations: 100
+  mutation_rate: 0.2
+  crossover_rate: 0.8
+  tournament_size: 3
+  elitism: 0.1
+
+alpha:
+  num_alphas: 100
+  evaluation_metrics:
+    - "RankIC"
+    - "ICIR"
+    - "turnover"
+    - "diversity"
+  min_rankic: 0.02
+  max_turnover: 0.3
+
+risk:
+  max_drawdown: 0.20  # 20% max drawdown
+  position_sizing: "kelly"
+  kelly_fraction: 0.25  # Quarter Kelly
+  diversification: true
+  correlation_threshold: 0.7
+
+backtest:
+  start_date: "2010-01-01"
+  end_date: "2025-01-01"
+  commission: 0.0005  # 0.05% (5 bps per trade)
+  slippage: 0.001  # 0.1% (10 bps slippage)
+  monte_carlo_runs: 100
+  
+  execution_delays:
+    enabled: true
+    fixed_delay_ms: 200.0
+    use_variable_delay: true
+    delay_mean_ms: 200.0
+    delay_std_ms: 50.0
+    delay_distribution: "normal"
+    integrate_slippage: true
+    slippage_bps: 10.0
+    slippage_std_bps: 5.0
+    model_partial_fills: true
+    min_fill_rate: 0.8
+    liquidity_threshold: 1000000.0
+    regime_based_delays: true
+    high_volatility_multiplier: 1.5
+    low_liquidity_multiplier: 2.0
+    data_feed_delay_ms: 100.0
+    broker_processing_ms: 50.0
+    network_jitter_ms: 20.0
+  
+  walk_forward:
+    enabled: false
+    train_window: 365  # 1 year training
+    test_window: 90    # 90 days testing
+    step_size: 90      # 90 days step forward
+  
+  monte_carlo:
+    enabled: false
+    num_simulations: 1000
+    slippage_std: 0.001
+    regime_probs:
+      bull: 0.3
+      bear: 0.2
+      sideways: 0.5
+  
+  regime_detection:
+    enabled: false
+    n_regimes: 3
+    method: "hmm"
+  
+  validation:
+    lookahead_check: true
+    overfitting_threshold: 0.7  # val_sharpe < train_sharpe * 0.7 = overfitting
+    early_stopping: true
+
+metrics:
+  target_sharpe: 1.5
+  target_sortino: 2.0
+  max_drawdown: 0.20
+  min_win_rate: 0.55
+
+sentiment:
+  model: "ProsusAI/finbert"
+  news_sources:
+    - "finnhub"
+    - "alpha_vantage"
+  lookback_days: 7
+  sentiment_threshold: 0.1
+
+agents:
+  data_agent:
+    enabled: true
+    priority: 1
+  analysis_agent:
+    enabled: true
+    priority: 2
+  decision_agent:
+    enabled: true
+    priority: 3
+  optimization_agent:
+    enabled: true
+    priority: 4
+    hypothesis_generation:
+      enabled: true
+      num_hypotheses: 3
+      confidence_threshold: 0.7
+
+autopilot:
+  enabled: true
+  mode: "paper"  # paper or live (NEVER use live)
+  check_interval: 300  # 5 minutes
+  max_runtime: null  # null for continuous
+  
+  strategy_horizon: "hybrid"  # Options: intraday, interday, hybrid
+  hybrid:
+    intraday_allocation: 0.6  # 60% for intraday (volatile symbols)
+    interday_allocation: 0.4  # 40% for interday (stable symbols)
+    intraday_timeframe: "5min"
+    interday_timeframe: "1day"
+    intraday_symbols: ["TSLA", "NVDA", "AMD", "COIN"]  # Volatile
+    interday_symbols: ["MSFT", "AAPL", "GOOGL", "JPM"]  # Stable
+  
+  offline_research:
+    enabled: true
+    sleep_start: "18:00"  # 6 PM ET
+    sleep_end: "09:00"    # 9 AM ET
+    tasks:
+      - "aggregate_news"
+      - "backtest_hypotheses"
+      - "evolve_strategies"
+      - "fine_tune_llm"
+      - "monte_carlo_optimization"
+    improvement_target: 0.15  # 10-15% improvement target
+  
+database:
+  type: "sqlite"
+  path: "data/knowledge_base/trading.db"
+  vector_store: "faiss"
+  vector_dim: 768
+
+logging:
+  level: "INFO"
+  file: "logs/trading_system.log"
+  max_size: "100MB"
+  backup_count: 10
 
 dashboard:
   enabled: true
-  port: 5000
+  port: 8501
   host: "0.0.0.0"
-  ngrok:
-    enabled: false
-    auth_token: "${NGROK_AUTH_TOKEN}"
+  refresh_interval: 60
 
-database:
-  type: "sqlite"
-  path: "data/trading.db"
-
-notifications:
-  enabled: false
-  email:
-    enabled: false
-    smtp_server: ""
-    smtp_port: 587
-    from_email: ""
-    to_email: ""
-  slack:
-    enabled: false
-    webhook_url: ""
-
-features:
-  multi_strategy_support: true
-  hive_mind_consensus: true
-  dynamic_position_sizing: true
-  adaptive_stop_loss: true
-  sentiment_analysis: false
-  news_integration: false
-  options_trading: false
-  crypto_support: false
-  backtesting: true
-  paper_trading: true
-  live_trading: false
-  risk_management: true
-  portfolio_optimization: true
-  technical_indicators: true
-  pattern_recognition: true
-  machine_learning: true
-  automated_rebalancing: true
-  performance_analytics: true
-  real_time_monitoring: true
+safety:
+  paper_trading_only: true
+  max_daily_trades: 100
+  max_daily_loss: 0.05  # 5% of capital
+  circuit_breaker: true
+  
+api_keys:
+  alpha_vantage: "${ALPHA_VANTAGE_API_KEY}"
+  finnhub: "${FINNHUB_API_KEY}"
+  huggingface: "${HUGGINGFACE_TOKEN}"
