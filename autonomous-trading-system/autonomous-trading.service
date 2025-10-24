@@ -1,0 +1,24 @@
+[Unit]
+Description=Autonomous Trading System - Set and Forget Launcher
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/autonomous-trading-system
+ExecStart=/usr/bin/python3 /home/ubuntu/autonomous-trading-system/launcher.py --set-and-forget --capital 100000
+Restart=always
+RestartSec=60
+StandardOutput=append:/home/ubuntu/autonomous-trading-system/logs/launcher.log
+StandardError=append:/home/ubuntu/autonomous-trading-system/logs/launcher-error.log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=16G
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
