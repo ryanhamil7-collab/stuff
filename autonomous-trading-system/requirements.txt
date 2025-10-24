@@ -119,3 +119,34 @@ grpcio>=1.62.0
 grpcio-tools>=1.62.0
 pytz>=2024.1
 zeroconf>=0.132.0
+
+# ML Enhancements - Time Series
+statsmodels>=0.14.0
+pmdarima>=2.0.4  # Auto-ARIMA
+
+# ML Enhancements - Hyperparameter Tuning
+optuna>=3.5.0
+optuna-integration>=3.5.0
+
+# ML Enhancements - Explainability
+shap>=0.44.0
+lime>=0.2.0.1
+
+# ML Enhancements - Graph Neural Networks
+torch-geometric>=2.4.0
+torch-scatter>=2.1.2
+torch-sparse>=0.6.18
+
+# ML Enhancements - Vector Database
+weaviate-client>=4.4.0
+
+# ML Enhancements - News Processing
+newspaper3k>=0.2.8
+feedparser>=6.0.11
+
+# ML Enhancements - Options Trading
+py_vollib>=1.0.1  # Implied volatility calculations
+
+# ML Enhancements - Additional Utilities
+joblib>=1.3.2
+networkx>=3.2.1  # For GNN graph construction
