@@ -223,6 +223,46 @@ if os.path.exists('backtest_results'):
     !ls -lh backtest_results/
 ```
 
+## Python 3.11+ Compatibility
+
+This system is fully compatible with Python 3.11 and 3.12. All dependency issues have been resolved:
+
+### Fixed Issues ✅
+
+1. **python>=3.10 removed**: This invalid pip requirement has been removed from requirements.txt
+2. **pandas-ta updated**: Now using pandas-ta>=0.4.71b0 for Python 3.11 compatibility
+3. **sqlite3 removed**: Built-in module, no longer in requirements.txt
+4. **auto-gptq optional**: Commented out by default, can be installed separately with CUDA
+5. **Updated dependencies**: All packages updated to latest Python 3.11-compatible versions
+
+### Build Tools for Kaggle
+
+Some packages may require build tools. The setup script handles this automatically:
+
+```bash
+# Automatically installed by setup.sh
+!apt-get update -qq
+!apt-get install -y build-essential python3-dev
+```
+
+If you encounter build errors, run this manually before installation:
+
+```python
+# Cell: Install Build Tools
+!apt-get update -qq && apt-get install -y build-essential python3-dev
+```
+
+### Optional: Installing auto-gptq
+
+If you have CUDA and want model quantization:
+
+```python
+# Cell: Install auto-gptq (requires CUDA)
+!pip install auto-gptq==0.7.1 --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+```
+
+For CPU-only or if build fails, the system works fine without auto-gptq.
+
 ## Troubleshooting
 
 ### Issue 1: Directory Not Found
@@ -239,16 +279,18 @@ if os.path.exists('backtest_results'):
 
 ### Issue 2: pandas-ta Installation Failed
 
-**Error**: `ERROR: Could not find a version that satisfies the requirement pandas-ta>=0.3.14b`
+**Error**: `ERROR: Could not find a version that satisfies the requirement pandas-ta==0.3.14b0`
 
-**Solution**:
+**Solution** (Python 3.11+):
 ```python
-# Install specific version
-!pip install pandas-ta==0.3.14b0
+# Install updated version for Python 3.11
+!pip install "pandas-ta>=0.4.71b0"
 
 # Or try latest
 !pip install pandas-ta
 ```
+
+**Note**: The requirements.txt has been updated to use pandas-ta>=0.4.71b0 for Python 3.11 compatibility.
 
 ### Issue 3: Missing apscheduler
 
@@ -314,6 +356,61 @@ sys.path.insert(0, '/kaggle/working/autonomous-trading-system')
 
 # Now import
 from main import TradingSystem
+```
+
+### Issue 9: Invalid python>=3.10 Requirement
+
+**Error**: `ERROR: Could not find a version that satisfies the requirement python>=3.10`
+
+**Solution**: This has been fixed in the latest version. The invalid `python>=3.10` line has been removed from requirements.txt. Python version is now checked by the installer script instead.
+
+```python
+# Verify Python version
+!python3 --version  # Should show 3.10+ or 3.11+
+```
+
+### Issue 10: sqlite3 Not Found
+
+**Error**: `ERROR: Could not find a version that satisfies the requirement sqlite3`
+
+**Solution**: sqlite3 is a built-in Python module and has been removed from requirements.txt. No installation needed.
+
+```python
+# Verify sqlite3 is available
+import sqlite3
+print(f"✓ sqlite3 version: {sqlite3.sqlite_version}")
+```
+
+### Issue 11: auto-gptq Build Failure
+
+**Error**: `error: subprocess-exited-with-error × python setup.py egg_info did not run successfully`
+
+**Solution**: auto-gptq requires CUDA and build tools. It's now optional and commented out by default.
+
+```python
+# Option 1: Install build tools first
+!apt-get update -qq && apt-get install -y build-essential python3-dev
+
+# Option 2: Install with CUDA wheels
+!pip install auto-gptq==0.7.1 --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+
+# Option 3: Skip auto-gptq (system works fine without it)
+# Just continue with the installation
+```
+
+### Issue 12: Metadata Generation Failed
+
+**Error**: `error: metadata-generation-failed`
+
+**Solution**: Install build tools before running pip install:
+
+```python
+# Cell: Install Build Tools
+!apt-get update -qq
+!apt-get install -y build-essential python3-dev
+
+# Then retry installation
+!python3 install.py
 ```
 
 ## Performance Optimization
