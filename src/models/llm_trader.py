@@ -3,17 +3,22 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from typing import Dict, List, Optional
 import json
 from src.utils import log, config
+from src.models.llm_schemas import TradingSignal, validate_llm_output
+from src.models.thesis_templates import ThesisPromptTemplate, StructuredThesis
 
 class LLMTrader:
     
-    def __init__(self, model_name: str = None):
+    def __init__(self, model_name: str = None, use_structured_thesis: bool = True):
         if model_name is None:
             model_name = config.get('llm.model_name', 'mistralai/Mistral-7B-Instruct-v0.2')
         
         self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.use_structured_thesis = use_structured_thesis
+        self.thesis_template = ThesisPromptTemplate()
         
         log.info(f"Loading LLM model: {model_name}")
+        log.info(f"Structured thesis format: {'enabled' if use_structured_thesis else 'disabled'}")
         
         try:
             quantization = config.get('llm.quantization', '4bit')
@@ -84,13 +89,15 @@ Sentiment Analysis:
 Alpha Signals:
 - Combined Alpha Score: {alpha_signals.get('combined_score', 0):.3f}
 
-Based on this comprehensive analysis, provide a trading decision in JSON format:
+Based on this comprehensive analysis, provide a trading decision in JSON format.
+IMPORTANT: Your reasoning MUST reference at least one real indicator (RSI, MACD, SMA, sentiment, etc).
+Do NOT invent indicators or use unrealistic factors.
+
 {{
+    "symbol": "{symbol}",
     "action": "BUY" or "SELL" or "HOLD",
     "confidence": 0.0 to 1.0,
-    "reasoning": "Brief explanation of the decision",
-    "risk_level": "LOW" or "MEDIUM" or "HIGH",
-    "time_horizon": "SHORT" or "MEDIUM" or "LONG"
+    "reasoning": "Brief explanation referencing real indicators (max 200 chars)"
 }}
 
 Trading Decision:"""
@@ -116,9 +123,14 @@ Trading Decision:"""
             alpha_signals = {'combined_score': 0.0}
         
         try:
-            prompt = self.create_trading_prompt(
-                symbol, technical_data, sentiment_data, alpha_signals, market_regime
-            )
+            if self.use_structured_thesis:
+                prompt = self.thesis_template.create_structured_prompt(
+                    symbol, technical_data, sentiment_data, alpha_signals, market_regime
+                )
+            else:
+                prompt = self.create_trading_prompt(
+                    symbol, technical_data, sentiment_data, alpha_signals, market_regime
+                )
             
             inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
@@ -156,10 +168,22 @@ Trading Decision:"""
                 json_start = decision_text.index('{')
                 json_end = decision_text.rindex('}') + 1
                 json_str = decision_text[json_start:json_end]
-                decision = json.loads(json_str)
+                decision_dict = json.loads(json_str)
                 
-                if 'action' in decision and 'confidence' in decision:
-                    return decision
+                if 'action' in decision_dict and 'confidence' in decision_dict and 'symbol' in decision_dict:
+                    try:
+                        validated = validate_llm_output(decision_dict, TradingSignal)
+                        return {
+                            'action': validated.action,
+                            'confidence': validated.confidence,
+                            'reasoning': validated.reasoning,
+                            'risk_level': 'MEDIUM',
+                            'time_horizon': 'MEDIUM'
+                        }
+                    except ValueError as ve:
+                        log.warning(f"LLM output validation failed: {str(ve)}")
+                        log.warning("Falling back to unvalidated output")
+                        return decision_dict
             
             return self._extract_decision_from_text(decision_text)
             

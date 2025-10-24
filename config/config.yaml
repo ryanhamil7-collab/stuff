@@ -20,6 +20,11 @@ data:
   update_interval: 300  # 5 minutes in seconds
   historical_days: 365
   
+  multimodal:
+    enabled: true
+    cache_embeddings: true
+    vector_store: "faiss"
+  
 symbols:
   watchlists:
     - "SP500"
@@ -63,6 +68,9 @@ llm:
   max_length: 2048
   temperature: 0.7
   top_p: 0.9
+  use_structured_thesis: true
+  compress_after_training: false
+  
   fine_tune:
     enabled: true
     method: "lora"
@@ -70,9 +78,14 @@ llm:
     alpha: 32
     dropout: 0.1
     update_interval: 604800  # Weekly
+  
+  testing_models:
+    - "microsoft/DialoGPT-medium"
+    - "google/gemma-2b-it"
+    - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 rl:
-  algorithm: "PPO"
+  algorithm: "PPO"  # Options: PPO, PPO_GRPO
   learning_rate: 0.0003
   n_steps: 2048
   batch_size: 64
@@ -84,6 +97,13 @@ rl:
   vf_coef: 0.5
   max_grad_norm: 0.5
   target_sharpe: 1.5
+  
+  grpo:
+    enabled: false
+    group_size: 4
+    oracle_weight: 0.3
+    volatility_penalty: 0.5
+    reference_model: null  # Optional: "meta-llama/Meta-Llama-3.1-70B-Instruct"
 
 genetic:
   population_size: 50
@@ -113,9 +133,54 @@ risk:
 backtest:
   start_date: "2010-01-01"
   end_date: "2025-01-01"
-  commission: 0.001  # 0.1%
-  slippage: 0.0005  # 0.05%
+  commission: 0.0005  # 0.05% (5 bps per trade)
+  slippage: 0.001  # 0.1% (10 bps slippage)
   monte_carlo_runs: 100
+  
+  execution_delays:
+    enabled: true
+    fixed_delay_ms: 200.0
+    use_variable_delay: true
+    delay_mean_ms: 200.0
+    delay_std_ms: 50.0
+    delay_distribution: "normal"
+    integrate_slippage: true
+    slippage_bps: 10.0
+    slippage_std_bps: 5.0
+    model_partial_fills: true
+    min_fill_rate: 0.8
+    liquidity_threshold: 1000000.0
+    regime_based_delays: true
+    high_volatility_multiplier: 1.5
+    low_liquidity_multiplier: 2.0
+    data_feed_delay_ms: 100.0
+    broker_processing_ms: 50.0
+    network_jitter_ms: 20.0
+  
+  walk_forward:
+    enabled: false
+    train_window: 365  # 1 year training
+    test_window: 90    # 90 days testing
+    step_size: 90      # 90 days step forward
+  
+  monte_carlo:
+    enabled: false
+    num_simulations: 1000
+    slippage_std: 0.001
+    regime_probs:
+      bull: 0.3
+      bear: 0.2
+      sideways: 0.5
+  
+  regime_detection:
+    enabled: false
+    n_regimes: 3
+    method: "hmm"
+  
+  validation:
+    lookahead_check: true
+    overfitting_threshold: 0.7  # val_sharpe < train_sharpe * 0.7 = overfitting
+    early_stopping: true
 
 metrics:
   target_sharpe: 1.5
@@ -144,12 +209,37 @@ agents:
   optimization_agent:
     enabled: true
     priority: 4
+    hypothesis_generation:
+      enabled: true
+      num_hypotheses: 3
+      confidence_threshold: 0.7
 
 autopilot:
   enabled: true
   mode: "paper"  # paper or live (NEVER use live)
   check_interval: 300  # 5 minutes
   max_runtime: null  # null for continuous
+  
+  strategy_horizon: "hybrid"  # Options: intraday, interday, hybrid
+  hybrid:
+    intraday_allocation: 0.6  # 60% for intraday (volatile symbols)
+    interday_allocation: 0.4  # 40% for interday (stable symbols)
+    intraday_timeframe: "5min"
+    interday_timeframe: "1day"
+    intraday_symbols: ["TSLA", "NVDA", "AMD", "COIN"]  # Volatile
+    interday_symbols: ["MSFT", "AAPL", "GOOGL", "JPM"]  # Stable
+  
+  offline_research:
+    enabled: true
+    sleep_start: "18:00"  # 6 PM ET
+    sleep_end: "09:00"    # 9 AM ET
+    tasks:
+      - "aggregate_news"
+      - "backtest_hypotheses"
+      - "evolve_strategies"
+      - "fine_tune_llm"
+      - "monte_carlo_optimization"
+    improvement_target: 0.15  # 10-15% improvement target
   
 database:
   type: "sqlite"

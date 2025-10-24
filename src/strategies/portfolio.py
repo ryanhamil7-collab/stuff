@@ -44,7 +44,10 @@ class Portfolio:
         if timestamp is None:
             timestamp = datetime.now()
         
-        cost = shares * price
+        slippage = config.get('backtest.slippage', 0.0005)
+        actual_price = price * (1 + slippage)
+        
+        cost = shares * actual_price
         commission = cost * config.get('backtest.commission', 0.001)
         total_cost = cost + commission
         
@@ -61,11 +64,12 @@ class Portfolio:
         self.positions[symbol] = {
             'symbol': symbol,
             'shares': shares,
-            'entry_price': price,
+            'entry_price': actual_price,
             'entry_date': timestamp,
-            'current_price': price,
+            'current_price': actual_price,
             'signal_type': signal_type,
-            'commission_paid': commission
+            'commission_paid': commission,
+            'slippage_cost': shares * price * slippage
         }
         
         self.trade_history.append({
@@ -73,12 +77,14 @@ class Portfolio:
             'symbol': symbol,
             'action': 'BUY',
             'shares': shares,
-            'price': price,
+            'quoted_price': price,
+            'actual_price': actual_price,
+            'slippage': slippage,
             'commission': commission,
             'total_cost': total_cost
         })
         
-        log.info(f"Opened position: {symbol} - {shares} shares @ ${price:.2f}")
+        log.info(f"Opened position: {symbol} - {shares} shares @ ${actual_price:.2f} (slippage: ${actual_price-price:.4f})")
         return True
     
     def close_position(
@@ -99,25 +105,33 @@ class Portfolio:
         shares = position['shares']
         entry_price = position['entry_price']
         
-        proceeds = shares * price
+        slippage = config.get('backtest.slippage', 0.0005)
+        actual_price = price * (1 - slippage)
+        
+        proceeds = shares * actual_price
         commission = proceeds * config.get('backtest.commission', 0.001)
         net_proceeds = proceeds - commission
         
         self.cash += net_proceeds
         
         pnl = net_proceeds - (shares * entry_price)
-        pnl_pct = (price - entry_price) / entry_price
+        pnl_pct = (actual_price - entry_price) / entry_price
         
         holding_period = (timestamp - position['entry_date']).days
         
+        total_slippage_cost = position.get('slippage_cost', 0) + (shares * price * slippage)
+        total_commission_cost = position.get('commission_paid', 0) + commission
+        
         closed_position = {
             **position,
-            'exit_price': price,
+            'exit_price': actual_price,
             'exit_date': timestamp,
             'pnl': pnl,
             'pnl_pct': pnl_pct,
             'holding_period': holding_period,
             'exit_commission': commission,
+            'total_slippage_cost': total_slippage_cost,
+            'total_commission_cost': total_commission_cost,
             'reason': reason
         }
         
@@ -128,7 +142,9 @@ class Portfolio:
             'symbol': symbol,
             'action': 'SELL',
             'shares': shares,
-            'price': price,
+            'quoted_price': price,
+            'actual_price': actual_price,
+            'slippage': slippage,
             'commission': commission,
             'net_proceeds': net_proceeds,
             'pnl': pnl,
@@ -138,7 +154,7 @@ class Portfolio:
         
         del self.positions[symbol]
         
-        log.info(f"Closed position: {symbol} - PnL: ${pnl:.2f} ({pnl_pct:.2%}) - Reason: {reason}")
+        log.info(f"Closed position: {symbol} - PnL: ${pnl:.2f} ({pnl_pct:.2%}) - Reason: {reason} (slippage: ${price-actual_price:.4f})")
         return True
     
     def update_positions(self, current_prices: Dict[str, float], timestamp: datetime = None):
