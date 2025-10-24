@@ -75,7 +75,7 @@ def plot_drawdown(equity_df):
         yaxis_title='Drawdown (%)',
         hovermode='x unified',
         template='plotly_dark'
-    ))
+    )
     
     return fig
 
