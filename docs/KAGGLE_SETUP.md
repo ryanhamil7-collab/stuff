@@ -20,12 +20,34 @@ Complete guide for deploying the Autonomous Trading System on Kaggle with zero e
 
 ## Installation Methods
 
-### Method 1: Quick Install (Recommended)
+### Method 1: Quick Install with System Checks (Recommended)
 
 ```python
 # Cell 1: Clone and Install
-!git clone https://github.com/your-username/autonomous-trading-system.git
-%cd autonomous-trading-system
+!git clone https://github.com/ryanhamil7-collab/stuff.git
+%cd stuff/autonomous-trading-system
+
+# Run Python installer
+!python3 install.py
+
+# Cell 2: Run System Checks
+!python3 run_with_checks.py --checks-only
+
+# This validates:
+# - Python 3.10+ ✅
+# - API keys configured ✅
+# - GPU/CUDA available (optional) ✅
+# - System resources (RAM, CPU, disk) ✅
+# - Internet connectivity ✅
+# - All dependencies installed ✅
+```
+
+### Method 2: Quick Install (No Checks)
+
+```python
+# Cell 1: Clone and Install
+!git clone https://github.com/ryanhamil7-collab/stuff.git
+%cd stuff/autonomous-trading-system
 
 # Run Python installer
 !python3 install.py

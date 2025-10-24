@@ -195,29 +195,62 @@ git clone https://github.com/ryanhamil7-collab/stuff.git
 cd stuff/autonomous-trading-system
 ```
 
-2. Create a virtual environment:
+2. **Automated Installation (Recommended)**:
 ```bash
+# Python installer with automatic checks and fallbacks
+python3 install.py
+
+# Or use bash setup script
+bash setup.sh
+```
+
+3. **Manual Installation**:
+```bash
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
 
-3. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-4. Set up environment variables:
-```bash
+# Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys
 ```
 
+### Pre-Flight System Checks
+
+Before launching, run comprehensive system checks to ensure everything is configured correctly:
+
+```bash
+# Run all system checks
+python3 run_with_checks.py --checks-only
+
+# Or run checks module directly
+python3 src/utils/system_checks.py
+```
+
+The system checks validate:
+- ✅ Python version (3.10+)
+- ✅ API keys (Alpaca, Alpha Vantage, Finnhub, Hugging Face)
+- ✅ GPU/CUDA availability (optional, for faster inference)
+- ✅ System resources (RAM, CPU, disk space)
+- ✅ Internet connectivity
+- ✅ Required directories and config files
+- ✅ Package versions
+- ✅ Model access
+- ✅ Kaggle environment detection (if applicable)
+
 ### Running the System
 
 #### 1. Set-and-Forget Mode (Recommended) 🚀
-Launch the fully automated 24/7 trading system:
+Launch the fully automated 24/7 trading system with pre-flight checks:
 
 ```bash
+# With automatic system checks (recommended)
+python3 run_with_checks.py --set-and-forget --capital 100000
+
+# Or launch directly (skips checks)
 python launcher.py --set-and-forget --capital 100000
 ```
 
@@ -840,4 +873,3 @@ os.environ['KEEP_ALIVE'] = 'true'
 
 For complete Kaggle deployment instructions, troubleshooting, and examples, see:
 **[docs/KAGGLE_SETUP.md](docs/KAGGLE_SETUP.md)**
-
