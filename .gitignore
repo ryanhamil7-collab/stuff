@@ -26,39 +26,34 @@ env/
 ENV/
 .venv
 
+# Environment Variables
+.env
+.env.local
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
-
-# Data
-data/raw/*
-data/processed/*
-data/models/*
-data/knowledge_base/*
-!data/.gitkeep
-*.csv
-*.parquet
-*.h5
-*.hdf5
 
 # Logs
-logs/*
-!logs/.gitkeep
+logs/
 *.log
 
-# Models
-*.pth
-*.pt
-*.ckpt
-*.safetensors
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
 
-# Environment
-.env
-.env.local
+# Backtest Results
+backtest_results/
+results/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
@@ -68,14 +63,18 @@ logs/*
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
 
-# Temporary files
-*.tmp
-*.bak
-*.swp
-temp/
+# Documentation
+docs/_build/
+
+# Temporary
 tmp/
+temp/
+*.tmp
 
-# OS
-Thumbs.db
-.DS_Store
+# Secrets
+credentials.json
+secrets.yaml
+*.key
+*.pem

@@ -1,0 +1,99 @@
+
+api:
+  alpaca:
+    base_url: "https://paper-api.alpaca.markets"
+    api_key: "${ALPACA_API_KEY}"
+    secret_key: "${ALPACA_SECRET_KEY}"
+    paper_trading: true
+
+trading:
+  mode: "paper"
+  symbols:
+    - "AAPL"
+    - "MSFT"
+    - "GOOGL"
+    - "AMZN"
+    - "TSLA"
+  
+  strategies:
+    - name: "momentum"
+      enabled: true
+      weight: 0.3
+    - name: "mean_reversion"
+      enabled: true
+      weight: 0.3
+    - name: "breakout"
+      enabled: true
+      weight: 0.2
+    - name: "trend_following"
+      enabled: true
+      weight: 0.2
+
+indicators:
+  sma:
+    periods: [20, 50, 200]
+  ema:
+    periods: [12, 26]
+  rsi:
+    period: 14
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  bollinger_bands:
+    period: 20
+    std_dev: 2
+  atr:
+    period: 14
+  adx:
+    period: 14
+  stochastic:
+    k_period: 14
+    d_period: 3
+  obv: {}
+  vwap: {}
+
+dashboard:
+  enabled: true
+  port: 5000
+  host: "0.0.0.0"
+  ngrok:
+    enabled: false
+    auth_token: "${NGROK_AUTH_TOKEN}"
+
+database:
+  type: "sqlite"
+  path: "data/trading.db"
+
+notifications:
+  enabled: false
+  email:
+    enabled: false
+    smtp_server: ""
+    smtp_port: 587
+    from_email: ""
+    to_email: ""
+  slack:
+    enabled: false
+    webhook_url: ""
+
+features:
+  multi_strategy_support: true
+  hive_mind_consensus: true
+  dynamic_position_sizing: true
+  adaptive_stop_loss: true
+  sentiment_analysis: false
+  news_integration: false
+  options_trading: false
+  crypto_support: false
+  backtesting: true
+  paper_trading: true
+  live_trading: false
+  risk_management: true
+  portfolio_optimization: true
+  technical_indicators: true
+  pattern_recognition: true
+  machine_learning: true
+  automated_rebalancing: true
+  performance_analytics: true
+  real_time_monitoring: true

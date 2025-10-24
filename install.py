@@ -117,13 +117,13 @@ class Installer:
         print("\nInstalling pandas-ta...")
         try:
             subprocess.run(
-                [sys.executable, "-m", "pip", "install", "pandas-ta>=0.4.71b0", "--quiet"],
+                [sys.executable, "-m", "pip", "install", "pandas-ta==0.3.14b0", "--quiet"],
                 check=True,
                 capture_output=True
             )
             print("✓ pandas-ta installed")
         except subprocess.CalledProcessError:
-            print("⚠ pandas-ta >=0.4.71b0 failed, trying any version...")
+            print("⚠ pandas-ta 0.3.14b0 failed, trying latest...")
             try:
                 subprocess.run(
                     [sys.executable, "-m", "pip", "install", "pandas-ta", "--quiet"],
@@ -133,28 +133,6 @@ class Installer:
                 print("✓ pandas-ta installed (latest)")
             except subprocess.CalledProcessError:
                 self.warnings.append("pandas-ta installation failed (optional)")
-        
-        print("\nChecking for CUDA (for auto-gptq)...")
-        try:
-            import torch
-            if torch.cuda.is_available():
-                print("CUDA detected, attempting auto-gptq installation...")
-                try:
-                    subprocess.run(
-                        [sys.executable, "-m", "pip", "install", "auto-gptq==0.7.1", 
-                         "--extra-index-url", "https://huggingface.github.io/autogptq-index/whl/cu118/", 
-                         "--quiet"],
-                        check=True,
-                        capture_output=True,
-                        timeout=300
-                    )
-                    print("✓ auto-gptq installed")
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                    self.warnings.append("auto-gptq installation failed (optional, requires CUDA)")
-            else:
-                print("⚠ No CUDA detected, skipping auto-gptq (optional)")
-        except ImportError:
-            print("⚠ torch not installed yet, skipping auto-gptq check")
         
         return True
     

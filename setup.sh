@@ -41,26 +41,11 @@ else
     echo -e "\n${YELLOW}[2/6] Kaggle environment detected - skipping venv${NC}"
 fi
 
-echo -e "\n${YELLOW}[3/6] Installing build tools (if needed)...${NC}"
-if [ "$(uname)" == "Linux" ]; then
-    if command -v apt-get &> /dev/null; then
-        echo "Checking for build tools..."
-        if ! command -v gcc &> /dev/null; then
-            echo "Installing build-essential (may require sudo)..."
-            sudo apt-get update -qq && sudo apt-get install -y build-essential python3-dev --quiet || {
-                echo -e "${YELLOW}⚠ Could not install build tools (may need manual installation)${NC}"
-            }
-        else
-            echo -e "${GREEN}✓ Build tools already installed${NC}"
-        fi
-    fi
-fi
-
-echo -e "\n${YELLOW}[4/6] Upgrading pip...${NC}"
+echo -e "\n${YELLOW}[3/6] Upgrading pip...${NC}"
 python3 -m pip install --upgrade pip --quiet
 echo -e "${GREEN}✓ pip upgraded${NC}"
 
-echo -e "\n${YELLOW}[5/6] Installing dependencies...${NC}"
+echo -e "\n${YELLOW}[4/6] Installing dependencies...${NC}"
 echo "This may take a few minutes..."
 
 if [ -f "requirements.txt" ]; then
@@ -69,8 +54,8 @@ if [ -f "requirements.txt" ]; then
         echo -e "${YELLOW}Some packages failed, trying with fallbacks...${NC}"
         
         echo "Installing pandas-ta..."
-        python3 -m pip install "pandas-ta>=0.4.71b0" --quiet || {
-            echo -e "${YELLOW}pandas-ta >=0.4.71b0 failed, trying any version...${NC}"
+        python3 -m pip install pandas-ta==0.3.14b0 --quiet || {
+            echo -e "${YELLOW}pandas-ta 0.3.14b0 failed, trying alternative...${NC}"
             python3 -m pip install pandas-ta --quiet || echo -e "${YELLOW}pandas-ta installation failed (optional)${NC}"
         }
         
@@ -82,11 +67,11 @@ else
     exit 1
 fi
 
-echo -e "\n${YELLOW}[6/6] Creating directories...${NC}"
+echo -e "\n${YELLOW}[5/6] Creating directories...${NC}"
 mkdir -p data logs backtest_results config
 echo -e "${GREEN}✓ Directories created${NC}"
 
-echo -e "\n${YELLOW}[7/7] Setting up configuration...${NC}"
+echo -e "\n${YELLOW}[6/6] Setting up configuration...${NC}"
 
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
