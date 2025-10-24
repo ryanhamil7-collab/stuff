@@ -1,7 +1,18 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
-import pandas_ta as ta
+
+try:
+    import pandas_ta as ta
+except ImportError as e:
+    import warnings
+    warnings.warn(
+        f"pandas_ta import failed: {e}. "
+        "Technical indicators will still work using manual implementations. "
+        "For full pandas_ta features, install: pip install pandas-ta==0.3.14b0 (Python 3.10) "
+        "or pip install pandas-ta-openbb==0.4.22 (fallback)"
+    )
+    ta = None
 
 class TechnicalIndicators:
     

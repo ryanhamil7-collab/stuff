@@ -89,13 +89,40 @@ Full documentation is available in the `autonomous-trading-system/` directory:
 
 ## 🛠️ Requirements
 
-- Python 3.10+
+- Python 3.10+ (Python 3.10-3.11 recommended for best compatibility)
 - 16GB+ RAM recommended
 - CUDA-capable GPU (optional, for faster LLM inference)
 - API keys (optional):
   - Alpha Vantage
   - Finnhub
   - Hugging Face
+
+### Python 3.10 Compatibility
+
+The system is optimized for **Python 3.10-3.11** environments (including Kaggle/Colab). Key compatibility notes:
+
+**pandas-ta Dependency**: The system uses `pandas-ta==0.3.14b0` for Python 3.10 compatibility. Newer versions (>=0.4.67b0) require Python 3.12+.
+
+**Automatic Handling**: The `setup.sh` script automatically detects your Python version and installs the correct pandas-ta version:
+- Python 3.10-3.11: Uses `pandas-ta==0.3.14b0`
+- Python 3.12+: Uses latest pandas-ta version
+- Fallback: If installation fails, tries `pandas-ta-openbb==0.4.22` (compatible fork)
+
+**Manual Installation** (if needed):
+```bash
+# For Python 3.10-3.11
+pip install pandas-ta==0.3.14b0
+
+# Or use the compatible fork
+pip install pandas-ta-openbb==0.4.22
+```
+
+**Troubleshooting**: If you see `ERROR: Could not find a version that satisfies the requirement pandas-ta>=0.3.14b`:
+1. Check Python version: `python --version`
+2. Use pinned version: `pip install pandas-ta==0.3.14b0`
+3. Or use fallback: `pip install pandas-ta-openbb==0.4.22`
+
+All 21 features work correctly with both pandas-ta versions.
 
 ## 📁 Repository Structure
 

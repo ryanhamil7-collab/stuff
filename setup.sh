@@ -54,7 +54,33 @@ echo "✓ Pip upgraded"
 echo ""
 
 echo "Installing dependencies (this may take a few minutes)..."
-pip install -r requirements.txt > /dev/null 2>&1
+
+PYTHON_MAJOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.major)')
+PYTHON_MINOR=$($PYTHON_CMD -c 'import sys; print(sys.version_info.minor)')
+
+echo "  Python version: $PYTHON_MAJOR.$PYTHON_MINOR"
+
+if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 12 ]; then
+    echo "  Detected Python 3.10/3.11 - using pandas-ta==0.3.14b0 for compatibility"
+    pip install -r requirements.txt > /dev/null 2>&1
+    
+    if ! $PYTHON_CMD -c "import pandas_ta" 2>/dev/null; then
+        echo "  ⚠️  pandas-ta==0.3.14b0 failed, trying fallback: pandas-ta-openbb==0.4.22"
+        pip uninstall -y pandas-ta > /dev/null 2>&1
+        pip install pandas-ta-openbb==0.4.22 > /dev/null 2>&1
+        
+        if $PYTHON_CMD -c "import pandas_ta" 2>/dev/null; then
+            echo "  ✓ Fallback pandas-ta-openbb installed successfully"
+        else
+            echo "  ❌ Warning: pandas-ta installation failed. Technical indicators may not work."
+            echo "     Try manually: pip install pandas-ta==0.3.14b0 or pandas-ta-openbb==0.4.22"
+        fi
+    fi
+else
+    echo "  Detected Python 3.12+ - using standard pandas-ta version"
+    pip install -r requirements.txt > /dev/null 2>&1
+fi
+
 echo "✓ Dependencies installed"
 echo ""
 

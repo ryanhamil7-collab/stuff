@@ -203,6 +203,87 @@ If you encounter any issues with the migration:
 3. Use the automated setup script (Option 3 above)
 4. Open an issue on GitHub: https://github.com/ryanhamil7-collab/stuff/issues
 
+## Python 3.10 Compatibility Fix
+
+### pandas-ta Dependency Issue
+
+**Problem**: Newer versions of pandas-ta (>=0.4.67b0) require Python 3.12+, causing installation errors on Python 3.10 environments (Kaggle, Colab):
+```
+ERROR: Could not find a version that satisfies the requirement pandas-ta>=0.3.14b
+```
+
+**Solution**: The system now uses `pandas-ta==0.3.14b0` (pinned version) for Python 3.10 compatibility.
+
+### Automatic Handling
+
+The `setup.sh` script automatically detects your Python version and installs the correct pandas-ta version:
+
+```bash
+# For Python 3.10-3.11
+pip install pandas-ta==0.3.14b0
+
+# For Python 3.12+
+pip install pandas-ta  # Latest version
+```
+
+If `pandas-ta==0.3.14b0` fails, the script automatically tries the fallback:
+```bash
+pip install pandas-ta-openbb==0.4.22  # Compatible fork
+```
+
+### Manual Installation
+
+If you encounter pandas-ta installation errors:
+
+```bash
+# Check Python version
+python --version
+
+# For Python 3.10-3.11, use pinned version
+pip install pandas-ta==0.3.14b0
+
+# Or use the compatible fork
+pip install pandas-ta-openbb==0.4.22
+```
+
+### Kaggle/Colab Specific
+
+For Kaggle/Colab notebooks (Python 3.10):
+
+```python
+# Install compatible version
+!pip install pandas-ta==0.3.14b0
+
+# Or use fallback
+!pip install pandas-ta-openbb==0.4.22
+
+# Then install other dependencies
+!pip install -r requirements.txt
+```
+
+### Verification
+
+Test that pandas-ta is working:
+
+```python
+import pandas_ta as ta
+print(f"pandas-ta version: {ta.__version__}")
+
+# Test RSI calculation
+import pandas as pd
+df = pd.DataFrame({'Close': [100, 102, 101, 103, 105]})
+rsi = ta.rsi(df['Close'], length=14)
+print(f"RSI calculation works: {rsi is not None}")
+```
+
+### Technical Details
+
+- **Compatible Version**: `pandas-ta==0.3.14b0` (Python 3.10-3.11)
+- **Fallback Version**: `pandas-ta-openbb==0.4.22` (NumPy 2 compatible fork)
+- **Latest Version**: `pandas-ta>=0.4.67b0` (Python 3.12+ only)
+
+All 21 features work correctly with both pandas-ta versions. The system includes error handling in `src/utils/indicators.py` to gracefully handle pandas-ta import failures.
+
 ## Summary
 
 **TL;DR**: After pulling latest changes, run `cd autonomous-trading-system` before running any commands. Everything else stays the same.
@@ -214,5 +295,7 @@ git pull
 cd autonomous-trading-system
 python launcher.py --set-and-forget
 ```
+
+**Python 3.10 Users**: The pandas-ta dependency is now fixed. Use `pandas-ta==0.3.14b0` or run `bash setup.sh` for automatic installation.
 
 That's it! 🚀
