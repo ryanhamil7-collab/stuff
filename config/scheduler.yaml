@@ -1,0 +1,251 @@
+
+scheduler:
+  timezone: "America/New_York"
+  
+  trading:
+    enabled: true
+    wake_time: "09:25"  # 5 minutes before market open (9:30 AM ET)
+    close_time: "16:00"  # Market close (4:00 PM ET)
+    days: "mon-fri"  # Trading days
+    
+    strategy_horizon: "hybrid"  # intraday | interday | hybrid
+    paper_trading: true
+    
+    features:
+      quantum: true
+      federated: true
+      neuro_symbolic: true
+      external_data: true
+      adversarial: true
+      ensemble: true
+      dynamic_costs: true
+      walk_forward: true
+      monte_carlo_runs: 1000
+  
+  offline_research:
+    enabled: true
+    start_time: "18:00"  # 6:00 PM ET (post-market)
+    end_time: "06:00"    # 6:00 AM ET (pre-market)
+    
+    quantum_enabled: true
+    evolve_alphas: 2000  # Number of alphas to evolve nightly
+    monte_carlo_runs: 5000  # Monte Carlo simulation runs
+    adversarial_enabled: true
+    
+    tasks:
+      - data_aggregation  # Collect trades, news, sentiment
+      - performance_analysis  # Analyze win rate, Sharpe, drawdown
+      - hypothesis_generation  # Generate market tension hypotheses
+      - backtesting  # Validate hypotheses
+      - strategy_evolution  # Genetic algorithms via DEAP
+      - monte_carlo_optimization  # Risk parameter tuning
+      - llm_finetuning  # Update model on successful trades
+      - hive_mind_sync  # P2P model sharing (if enabled)
+  
+  dashboard:
+    enabled: true
+    port: 8501
+    refresh_interval: 300  # Refresh every 5 minutes (seconds)
+    auto_restart: true  # Restart if crashed
+  
+  symbol_discovery:
+    enabled: true
+    mode: "realtime"  # static | realtime
+    frequency_minutes: 15  # Run every 15 minutes during market hours
+    
+    max_symbols: 20  # Top N symbols to discover
+    min_score_threshold: 0.5  # Minimum score to consider
+    
+    asset_classes:
+      stocks: true  # S&P 500, Nasdaq-100
+      etfs: true  # Popular ETFs
+      crypto: true  # Cryptocurrencies via ccxt
+      options: true  # Options chains
+    
+    scoring:
+      sentiment_weight: 0.4
+      volatility_weight: 0.3
+      momentum_weight: 0.2
+      liquidity_weight: 0.1
+      external_weight: 0.0  # Weather, satellite, etc.
+    
+    filters:
+      min_volume: 1000000  # 1M minimum volume
+      min_volatility: 0.02  # 2% minimum volatility
+      min_sentiment: 0.3  # Minimum sentiment score
+      max_bid_ask_spread: 0.005  # 0.5% max spread
+    
+    hive_mind:
+      broadcast_enabled: true  # Broadcast discoveries to hive
+      receive_enabled: true  # Receive discoveries from hive
+      validate_before_adopt: true  # Run Monte Carlo validation
+      monte_carlo_runs: 1000  # Validation runs
+    
+    self_learning:
+      enabled: true  # Evolve filters during offline research
+      quantum_evolution: true  # Use quantum optimization
+      target_improvement: 0.20  # +20% hit rate target
+  
+  logging:
+    level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+    file: "logs/launcher.log"
+    max_size_mb: 100
+    backup_count: 10
+
+high_risk_mode:
+  enabled: false  # WARNING: 2-3x returns but also 2-3x drawdowns
+  
+  leverage_multiplier: 5.0  # 5x leverage (vs 1-2x baseline)
+  max_position_size_pct: 0.25  # 25% max per trade (vs 10% baseline)
+  trade_frequency_multiplier: 2.0  # 2x more trades
+  
+  stop_loss_pct: 0.05  # 5% stop loss (vs 2% baseline)
+  take_profit_pct: 0.15  # 15% take profit (vs 5% baseline)
+  
+  intraday_allocation: 0.80  # 80% intraday (vs 60% baseline)
+  interday_allocation: 0.20  # 20% interday (vs 40% baseline)
+  
+  min_volatility: 0.05  # 5% minimum volatility
+  prioritize_crypto: true  # Prioritize crypto assets
+  prioritize_options: true  # Prioritize options
+  
+  max_drawdown_shutdown: 0.30  # Auto-shutdown at -30% drawdown
+  
+  slippage_multiplier: 1.5  # 1.5x slippage in aggressive trades
+  delay_multiplier: 1.2  # 1.2x execution delays
+
+hive_mind:
+  enabled: false  # Set to true to join hive mind network
+  
+  network:
+    peers: []
+    
+    host: "0.0.0.0"
+    port: 50051
+    
+    auto_discovery:
+      enabled: true  # Zero-config peer discovery
+      mdns_enabled: true  # Local network (same WiFi/LAN)
+      nostr_enabled: false  # Cross-cloud (Kaggle/Colab)
+      bootstrap_enabled: true  # Public bootstrap nodes
+      
+      max_peers: 100
+      discovery_timeout_seconds: 30
+      
+      bootstrap_nodes:
+        - "bootstrap1.autonomous-trading.network:50051"
+        - "bootstrap2.autonomous-trading.network:50051"
+      
+      nostr_relays:
+        - "wss://relay.damus.io"
+        - "wss://relay.nostr.band"
+  
+  sharing:
+    share_gradients: true  # Share model gradients (LoRA/GRPO)
+    share_alphas: true  # Share novel alpha factors
+    share_strategies: true  # Share profitable strategies
+    share_hypotheses: true  # Share market tension hypotheses
+    
+    anonymize: true  # Anonymize all shared data
+    aggregate_only: true  # Only share aggregated data, not raw
+    
+    min_sharpe_to_share: 1.5  # Only share strategies with Sharpe > 1.5
+    min_win_rate_to_share: 0.60  # Only share strategies with win rate > 60%
+    min_monte_carlo_runs: 1000  # Validate with Monte Carlo before sharing
+  
+  security:
+    enabled: true
+    
+    blockchain_verification: true  # Use blockchain hashes
+    ipfs_storage: false  # Store updates on IPFS
+    
+    reject_outliers: true
+    outlier_threshold: 3.0  # Standard deviations
+    
+    max_updates_per_hour: 10
+    max_updates_per_peer: 5
+  
+  incentives:
+    enabled: false
+    token_name: "ALPHA"
+    
+    reward_per_gradient: 1.0
+    reward_per_alpha: 5.0
+    reward_per_strategy: 10.0
+    
+    penalty_for_rejected: -5.0
+  
+  gossip:
+    protocol: "push-pull"  # push | pull | push-pull
+    fanout: 3  # Number of peers to gossip to
+    interval_seconds: 60  # Gossip every 60 seconds
+    
+    max_hops: 5
+    message_ttl_seconds: 3600
+  
+  federated:
+    algorithm: "FedAvg"  # FedAvg | FedProx | FedYogi
+    
+    aggregation_frequency: "nightly"  # nightly | hourly | continuous
+    min_peers_for_aggregation: 3
+    
+    local_epochs: 5
+    batch_size: 32
+    learning_rate: 0.0001
+
+capital:
+  initial_capital: 100000.0  # $100,000 default
+  max_position_size: 0.10  # 10% max per position
+  max_daily_loss: 0.05  # 5% max daily loss
+  circuit_breaker_loss: 0.10  # 10% total loss triggers shutdown
+
+notifications:
+  enabled: false
+  
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    from_address: ""
+    to_address: ""
+    password: ""
+  
+  slack:
+    enabled: false
+    webhook_url: ""
+  
+  discord:
+    enabled: false
+    webhook_url: ""
+  
+  events:
+    - trading_started
+    - trading_stopped
+    - research_started
+    - research_stopped
+    - circuit_breaker_triggered
+    - hive_mind_update_received
+    - daily_summary
+
+backup:
+  enabled: true
+  frequency: "daily"  # hourly | daily | weekly
+  location: "backups/"
+  keep_last_n: 30  # Keep last 30 backups
+  
+  include:
+    - models/
+    - data/trades/
+    - logs/
+    - config/
+
+advanced:
+  auto_restart: true
+  max_restart_attempts: 3
+  restart_delay_seconds: 60
+  
+  max_cpu_percent: 80
+  max_memory_mb: 16000
+  
+  health_check_interval: 300  # 5 minutes
+  health_check_timeout: 30
