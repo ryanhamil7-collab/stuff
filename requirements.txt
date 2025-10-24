@@ -114,3 +114,4 @@ foolbox>=3.3.0
 grpc>=1.60.0
 grpcio-tools>=1.60.0
 pytz>=2023.3
+zeroconf>=0.132.0

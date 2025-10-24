@@ -92,6 +92,28 @@ scheduler:
     max_size_mb: 100
     backup_count: 10
 
+high_risk_mode:
+  enabled: false  # WARNING: 2-3x returns but also 2-3x drawdowns
+  
+  leverage_multiplier: 5.0  # 5x leverage (vs 1-2x baseline)
+  max_position_size_pct: 0.25  # 25% max per trade (vs 10% baseline)
+  trade_frequency_multiplier: 2.0  # 2x more trades
+  
+  stop_loss_pct: 0.05  # 5% stop loss (vs 2% baseline)
+  take_profit_pct: 0.15  # 15% take profit (vs 5% baseline)
+  
+  intraday_allocation: 0.80  # 80% intraday (vs 60% baseline)
+  interday_allocation: 0.20  # 20% interday (vs 40% baseline)
+  
+  min_volatility: 0.05  # 5% minimum volatility
+  prioritize_crypto: true  # Prioritize crypto assets
+  prioritize_options: true  # Prioritize options
+  
+  max_drawdown_shutdown: 0.30  # Auto-shutdown at -30% drawdown
+  
+  slippage_multiplier: 1.5  # 1.5x slippage in aggressive trades
+  delay_multiplier: 1.2  # 1.2x execution delays
+
 hive_mind:
   enabled: false  # Set to true to join hive mind network
   
@@ -101,9 +123,22 @@ hive_mind:
     host: "0.0.0.0"
     port: 50051
     
-    discovery_enabled: false
-    discovery_protocol: "nostr"  # nostr | mdns | bootstrap
-    bootstrap_nodes: []
+    auto_discovery:
+      enabled: true  # Zero-config peer discovery
+      mdns_enabled: true  # Local network (same WiFi/LAN)
+      nostr_enabled: false  # Cross-cloud (Kaggle/Colab)
+      bootstrap_enabled: true  # Public bootstrap nodes
+      
+      max_peers: 100
+      discovery_timeout_seconds: 30
+      
+      bootstrap_nodes:
+        - "bootstrap1.autonomous-trading.network:50051"
+        - "bootstrap2.autonomous-trading.network:50051"
+      
+      nostr_relays:
+        - "wss://relay.damus.io"
+        - "wss://relay.nostr.band"
   
   sharing:
     share_gradients: true  # Share model gradients (LoRA/GRPO)

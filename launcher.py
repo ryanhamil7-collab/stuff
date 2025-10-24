@@ -58,6 +58,8 @@ class TradingSystemLauncher:
         self.research_process: Optional[subprocess.Popen] = None
         self.dashboard_process: Optional[subprocess.Popen] = None
         self.discovery_engine = None
+        self.auto_discovery_manager = None
+        self.p2p_node = None
         self.running = False
         
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -274,6 +276,59 @@ class TradingSystemLauncher:
         logger.info("Refreshing dashboard...")
         self.start_dashboard()
     
+    def start_auto_discovery(self):
+        """Start automatic P2P peer discovery"""
+        hive_config = self.config.get('hive_mind', {})
+        
+        if not hive_config.get('enabled', False):
+            return
+        
+        auto_discovery_config = hive_config.get('network', {}).get('auto_discovery', {})
+        
+        if not auto_discovery_config.get('enabled', False):
+            logger.info("Auto-discovery disabled, using manual peer list")
+            return
+        
+        try:
+            from src.hive_mind.auto_discovery import AutoDiscoveryManager
+            
+            self.auto_discovery_manager = AutoDiscoveryManager(
+                port=hive_config['network']['port'],
+                enable_mdns=auto_discovery_config.get('mdns_enabled', True),
+                enable_nostr=auto_discovery_config.get('nostr_enabled', False),
+                enable_bootstrap=auto_discovery_config.get('bootstrap_enabled', True),
+                bootstrap_nodes=auto_discovery_config.get('bootstrap_nodes', []),
+                nostr_relays=auto_discovery_config.get('nostr_relays', []),
+                max_peers=auto_discovery_config.get('max_peers', 100)
+            )
+            
+            def on_peer_discovered(peer):
+                logger.info(f"🔗 Auto-discovered peer: {peer.node_id} at {peer.host}:{peer.port}")
+                if self.p2p_node:
+                    self.p2p_node.connect_to_peer(f"{peer.host}:{peer.port}")
+            
+            def on_peer_lost(node_id):
+                logger.info(f"❌ Lost peer: {node_id}")
+            
+            self.auto_discovery_manager.on_peer_discovered = on_peer_discovered
+            self.auto_discovery_manager.on_peer_lost = on_peer_lost
+            
+            self.auto_discovery_manager.start()
+            
+            logger.info("✅ Auto-discovery started - scanning for peers...")
+            
+        except Exception as e:
+            logger.error(f"Failed to start auto-discovery: {e}")
+    
+    def stop_auto_discovery(self):
+        """Stop automatic P2P peer discovery"""
+        if self.auto_discovery_manager:
+            try:
+                self.auto_discovery_manager.stop()
+                logger.info("Auto-discovery stopped")
+            except Exception as e:
+                logger.error(f"Error stopping auto-discovery: {e}")
+    
     def run_symbol_discovery(self):
         """Run real-time symbol discovery"""
         if not self.config.get('symbol_discovery', {}).get('enabled', False):
@@ -436,6 +491,8 @@ class TradingSystemLauncher:
         
         self.setup_schedule()
         
+        self.start_auto_discovery()
+        
         self.start_dashboard()
         
         if self.check_market_hours():
@@ -468,6 +525,7 @@ class TradingSystemLauncher:
         
         self.stop_trading()
         self.stop_offline_research()
+        self.stop_auto_discovery()
         
         if self.dashboard_process:
             try:
