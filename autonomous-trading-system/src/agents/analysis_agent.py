@@ -82,6 +82,12 @@ class AnalysisAgent:
                 alpha_signals=alpha_data,
                 market_regime=market_regime
             )
+
+            if llm_decision.get('reasoning', '') == 'Fallback decision based on technical indicators':
+                log.warning(f"LLM fallback used for {symbol} - model may not be loaded")
+            else:
+                log.info(f"LLM active for {symbol}: {llm_decision['action']} ({llm_decision['confidence']:.2f})")
+
             
             technical_signal = latest_data.get('Signal', 0)
             sentiment_score = sentiment_data.get('overall_sentiment', 0)
@@ -98,9 +104,9 @@ class AnalysisAgent:
             elif llm_decision['action'] == 'SELL':
                 combined_score -= 0.5 * llm_decision['confidence']
             
-            if combined_score > 0.3:
+            if combined_score > 0.1:  # Lowered from 0.3 for more trades
                 final_action = 'BUY'
-            elif combined_score < -0.3:
+            elif combined_score < -0.1:  # Lowered from -0.3 for more trades
                 final_action = 'SELL'
             else:
                 final_action = 'HOLD'

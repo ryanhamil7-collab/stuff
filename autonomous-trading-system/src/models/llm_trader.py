@@ -51,6 +51,9 @@ class LLMTrader:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
             log.info("LLM model loaded successfully")
+            log.info(f"Model device: {self.device}")
+            log.info(f"Model dtype: {self.model.dtype if hasattr(self.model, 'dtype') else 'unknown'}")
+            log.info(f"Quantization: {quantization}")
             
         except Exception as e:
             log.error(f"Error loading LLM model: {str(e)}")
@@ -114,6 +117,8 @@ Trading Decision:"""
     ) -> Dict:
         if self.model is None or self.tokenizer is None:
             log.warning("LLM model not available, using fallback logic")
+            log.warning("This means the AI is NOT making decisions - only technical indicators")
+            log.warning("Check if model loaded correctly or if HuggingFace token is set")
             return self._fallback_decision(technical_data)
         
         if sentiment_data is None:

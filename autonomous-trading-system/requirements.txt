@@ -1,3 +1,6 @@
+# Core Python (requires Python 3.10+, check with: python3 --version)
+# python>=3.10  # Invalid pip requirement - removed
+
 # Data Processing
 pandas>=2.0.0,<2.3.0
 numpy>=1.24.0,<2.0.0
@@ -18,13 +21,13 @@ xgboost>=2.0.0
 lightgbm>=4.0.0
 
 # Deep Learning & LLM
-torch>=2.0.0
-transformers>=4.35.0
-peft>=0.7.0
-accelerate>=0.25.0
-bitsandbytes>=0.41.0
-sentencepiece>=0.1.99
-protobuf>=3.20.0
+torch>=2.1.0
+transformers>=4.40.0
+peft>=0.10.0
+accelerate>=0.28.0
+bitsandbytes>=0.43.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
 
 # Reinforcement Learning
 stable-baselines3>=2.2.0
@@ -35,16 +38,16 @@ sb3-contrib>=2.2.0
 deap>=1.4.1
 
 # Multi-Agent Framework
-langchain>=0.1.0
-langgraph>=0.0.20
-langchain-community>=0.0.10
+langchain>=0.2.0
+langgraph>=0.1.0
+langchain-community>=0.2.0
 
 # Backtesting
 vectorbt>=0.26.0
 backtrader>=1.9.78.123
 
 # Database & Vector Store
-# sqlite3 is built-in to Python
+# sqlite3 is built-in to Python, no pip install needed
 faiss-cpu>=1.7.4
 chromadb>=0.4.18
 
@@ -61,13 +64,14 @@ tenacity>=8.2.3
 python-dotenv>=1.0.0
 pyyaml>=6.0.1
 tqdm>=4.66.0
+psutil>=5.9.0
 
 # Logging & Monitoring
 loguru>=0.7.2
 
 # Visualization & Dashboard
-streamlit>=1.29.0
-plotly>=5.18.0
+streamlit>=1.32.0
+plotly>=5.20.0
 matplotlib>=3.8.0
 seaborn>=0.13.0
 
@@ -90,7 +94,10 @@ mypy>=1.7.0
 QuantLib>=1.31
 
 # Advanced Model Compression
-auto-gptq>=0.7.0
+# auto-gptq requires CUDA and build tools - install separately if needed:
+# pip install auto-gptq==0.7.1 --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+# For CPU-only or if build fails, comment out or use transformers' built-in quantization
+# auto-gptq==0.7.1  # Optional - requires CUDA, commented out for compatibility
 hmmlearn>=0.3.0
 jsonschema>=4.20.0
 
@@ -108,8 +115,38 @@ pyswip>=0.2.10
 foolbox>=3.3.0
 
 # P2P Networking & Hive Mind
-grpcio>=1.60.0
-grpcio-tools>=1.60.0
-pytz>=2023.3
+grpcio>=1.62.0
+grpcio-tools>=1.62.0
+pytz>=2024.1
 zeroconf>=0.132.0
-psutil>=5.9.0
+
+# ML Enhancements - Time Series
+statsmodels>=0.14.0
+pmdarima>=2.0.4  # Auto-ARIMA
+
+# ML Enhancements - Hyperparameter Tuning
+optuna>=3.5.0
+optuna-integration>=3.5.0
+
+# ML Enhancements - Explainability
+shap>=0.44.0
+lime>=0.2.0.1
+
+# ML Enhancements - Graph Neural Networks
+torch-geometric>=2.4.0
+torch-scatter>=2.1.2
+torch-sparse>=0.6.18
+
+# ML Enhancements - Vector Database
+weaviate-client>=4.4.0
+
+# ML Enhancements - News Processing
+newspaper3k>=0.2.8
+feedparser>=6.0.11
+
+# ML Enhancements - Options Trading
+py_vollib>=1.0.1  # Implied volatility calculations
+
+# ML Enhancements - Additional Utilities
+joblib>=1.3.2
+networkx>=3.2.1  # For GNN graph construction
