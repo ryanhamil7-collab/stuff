@@ -13,12 +13,15 @@ class DataAgent:
         self.cache = {}
         log.info("DataAgent initialized")
     
-    def collect_market_data(self, symbols: List[str]) -> Dict[str, pd.DataFrame]:
+    def collect_market_data(self, symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
         log.info(f"Collecting market data for {len(symbols)} symbols")
         
-        start_date = config.get('backtest.start_date')
-        end_date = config.get('backtest.end_date')
+        if start_date is None:
+            start_date = config.get('backtest.start_date')
+        if end_date is None:
+            end_date = config.get('backtest.end_date')
         
+        log.info(f"Date range: {start_date} to {end_date}")
         data = self.fetcher.fetch_multiple_symbols(symbols, start_date, end_date)
         
         log.info(f"Successfully collected data for {len(data)} symbols")
@@ -36,13 +39,15 @@ class DataAgent:
                     log.warning(f"Insufficient data for {symbol}, skipping")
                     continue
                 
+                log.info(f"Processing {symbol}: {len(df)} rows before indicators")
                 df_processed = self.indicators.calculate_all_indicators(df, indicator_config)
                 
-                df_processed = df_processed.dropna()
+                essential_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+                df_processed = df_processed.dropna(subset=essential_cols)
                 
                 if not df_processed.empty:
                     processed_data[symbol] = df_processed
-                    log.info(f"Successfully processed {symbol}: {len(df_processed)} rows")
+                    log.info(f"Successfully processed {symbol}: {len(df_processed)} rows after processing")
                 
             except Exception as e:
                 log.error(f"Error processing {symbol}: {str(e)}")

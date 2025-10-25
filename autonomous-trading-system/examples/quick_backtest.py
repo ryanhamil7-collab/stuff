@@ -15,11 +15,14 @@ def main():
     log.info("=" * 80)
     
     symbols = ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA']
+    start_date = '2023-01-01'
+    end_date = '2024-10-24'
     
     log.info(f"Fetching data for: {', '.join(symbols)}")
+    log.info(f"Date range: {start_date} to {end_date}")
     
     data_agent = DataAgent()
-    data = data_agent.collect_market_data(symbols)
+    data = data_agent.collect_market_data(symbols, start_date, end_date)
     
     log.info("Processing data with technical indicators...")
     processed_data = data_agent.process_data(data)
@@ -33,8 +36,8 @@ def main():
     backtest_engine = BacktestEngine(initial_capital=100000.0)
     result = backtest_engine.run_backtest(
         processed_data,
-        start_date='2023-01-01',
-        end_date='2024-12-31'
+        start_date=start_date,
+        end_date=end_date
     )
     
     log.info("=" * 80)

@@ -2,8 +2,8 @@
 # python>=3.10  # Invalid pip requirement - removed
 
 # Data Processing
-pandas>=2.0.0
-numpy>=1.24.0
+pandas>=2.0.0,<2.3.0
+numpy>=1.24.0,<2.0.0
 scipy>=1.10.0
 
 # Market Data APIs
@@ -13,7 +13,7 @@ finnhub-python>=2.4.18
 
 # Technical Analysis
 ta-lib>=0.4.28
-pandas-ta>=0.4.71b0  # Updated for Python 3.11 compatibility
+pandas-ta>=0.4.67b0
 
 # Machine Learning
 scikit-learn>=1.3.0
