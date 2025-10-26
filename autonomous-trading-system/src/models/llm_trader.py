@@ -323,18 +323,88 @@ Trading Decision:"""
     
     def batch_generate_decisions(
         self, 
-        symbols_data: Dict[str, Dict]
+        symbols_data: Dict[str, Dict],
+        batch_size: int = 4
     ) -> Dict[str, Dict]:
+        """
+        Generate trading decisions for multiple symbols using batch inference.
+        
+        Args:
+            symbols_data: Dict mapping symbols to their data
+            batch_size: Number of symbols to process in parallel (default: 4)
+        
+        Returns:
+            Dict mapping symbols to trading decisions
+        """
+        if not self.model or not self.tokenizer:
+            log.warning("Model not loaded, using fallback decisions")
+            return {symbol: self._fallback_decision(symbol) for symbol in symbols_data}
+        
         decisions = {}
+        symbols = list(symbols_data.keys())
         
-        for symbol, data in symbols_data.items():
-            decision = self.generate_trading_decision(
-                symbol,
-                data.get('technical', {}),
-                data.get('sentiment', {}),
-                data.get('alpha', {}),
-                data.get('market_regime', 'unknown')
-            )
-            decisions[symbol] = decision
+        log.info(f"Batch processing {len(symbols)} symbols with batch_size={batch_size}")
         
+        for i in range(0, len(symbols), batch_size):
+            batch_symbols = symbols[i:i+batch_size]
+            batch_prompts = []
+            
+            for symbol in batch_symbols:
+                data = symbols_data[symbol]
+                
+                if self.use_prompt_agent and self.prompt_agent:
+                    prompt = self.prompt_agent.create_prompt(
+                        symbol=symbol,
+                        technical_data=data.get('technical', {}),
+                        sentiment_data=data.get('sentiment', {}),
+                        alpha_signals=data.get('alpha', {}),
+                        market_regime=data.get('market_regime', 'unknown')
+                    )
+                else:
+                    prompt = self.create_trading_prompt(
+                        symbol,
+                        data.get('technical', {}),
+                        data.get('sentiment', {}),
+                        data.get('alpha', {}),
+                        data.get('market_regime', 'unknown')
+                    )
+                
+                batch_prompts.append(prompt)
+            
+            try:
+                inputs = self.tokenizer(
+                    batch_prompts,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=2048
+                ).to(self.device)
+                
+                with torch.no_grad():
+                    outputs = self.model.generate(
+                        **inputs,
+                        max_new_tokens=config.get('llm.max_new_tokens', 256),
+                        temperature=config.get('llm.temperature', 0.7),
+                        do_sample=True,
+                        pad_token_id=self.tokenizer.pad_token_id
+                    )
+                
+                for idx, symbol in enumerate(batch_symbols):
+                    response = self.tokenizer.decode(outputs[idx], skip_special_tokens=True)
+                    
+                    prompt_end = response.find("Trading Decision:")
+                    if prompt_end != -1:
+                        response = response[prompt_end + len("Trading Decision:"):]
+                    
+                    decision = self._parse_decision(response, symbol)
+                    decisions[symbol] = decision
+                    
+                    log.debug(f"Batch decision for {symbol}: {decision['action']} (confidence: {decision['confidence']:.2f})")
+            
+            except Exception as e:
+                log.error(f"Error in batch inference: {str(e)}")
+                for symbol in batch_symbols:
+                    decisions[symbol] = self._fallback_decision(symbol)
+        
+        log.info(f"Batch processing complete: {len(decisions)} decisions generated")
         return decisions

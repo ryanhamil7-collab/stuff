@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import Dict, List
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.models import SentimentAnalyzer
 from src.models.llm_trader import LLMTrader
 from src.strategies import AlphaMining
@@ -8,13 +9,17 @@ from src.utils import log, config
 
 class AnalysisAgent:
     
-    def __init__(self, use_prompt_agent: bool = False):
+    def __init__(self, use_prompt_agent: bool = False, use_batch_inference: bool = True, max_workers: int = 4):
         self.sentiment_analyzer = SentimentAnalyzer()
         self.llm_trader = LLMTrader(use_prompt_agent=use_prompt_agent)
         self.alpha_miner = AlphaMining()
         self.top_alphas = []
         self.use_prompt_agent = use_prompt_agent
-        log.info(f"AnalysisAgent initialized (PromptAgent: {'enabled' if use_prompt_agent else 'disabled'})")
+        self.use_batch_inference = use_batch_inference
+        self.max_workers = max_workers
+        log.info(f"AnalysisAgent initialized (PromptAgent: {'enabled' if use_prompt_agent else 'disabled'}, "
+                f"Batch Inference: {'enabled' if use_batch_inference else 'disabled'}, "
+                f"Max Workers: {max_workers})")
     
     def analyze_market_data(
         self, 
@@ -49,6 +54,42 @@ class AnalysisAgent:
         log.info("Market analysis completed")
         return analysis_results
     
+    def _prepare_symbol_data(
+        self,
+        symbol: str,
+        df: pd.DataFrame,
+        analysis_results: Dict,
+        portfolio_state: Dict = None,
+        risk_context: Dict = None
+    ) -> Dict:
+        """Prepare data for a single symbol for batch processing"""
+        latest_data = df.iloc[-1].to_dict()
+        
+        sentiment_data = analysis_results['sentiment_signals'].get(symbol, {
+            'overall_sentiment': 0.0,
+            'signal': 'neutral'
+        })
+        
+        alpha_data = analysis_results['alpha_signals'].get(symbol, {
+            'combined_score': 0.0
+        })
+        
+        from src.utils.indicators import TechnicalIndicators
+        market_regime = TechnicalIndicators.detect_market_regime(df)
+        
+        alpha_data_with_top = alpha_data.copy()
+        alpha_data_with_top['top_alphas'] = analysis_results.get('top_alphas', [])
+        
+        return {
+            'technical': latest_data,
+            'sentiment': sentiment_data,
+            'alpha': alpha_data_with_top,
+            'market_regime': market_regime,
+            'market_data': df,
+            'portfolio_state': portfolio_state,
+            'risk_context': risk_context
+        }
+    
     def generate_trading_signals(
         self,
         processed_data: Dict[str, pd.DataFrame],
@@ -60,10 +101,68 @@ class AnalysisAgent:
         
         trading_signals = {}
         
-        for symbol, df in processed_data.items():
-            if len(df) == 0:
-                continue
+        valid_symbols = {symbol: df for symbol, df in processed_data.items() if len(df) > 0}
+        
+        if not valid_symbols:
+            log.warning("No valid symbols to analyze")
+            return trading_signals
+        
+        if self.use_batch_inference:
+            log.info(f"Using batch inference with {self.max_workers} workers")
             
+            symbols_data = {}
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                future_to_symbol = {
+                    executor.submit(
+                        self._prepare_symbol_data,
+                        symbol, df, analysis_results, portfolio_state, risk_context
+                    ): symbol
+                    for symbol, df in valid_symbols.items()
+                }
+                
+                for future in as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        symbols_data[symbol] = future.result()
+                    except Exception as e:
+                        log.error(f"Error preparing data for {symbol}: {str(e)}")
+            
+            llm_decisions = self.llm_trader.batch_generate_decisions(
+                symbols_data,
+                batch_size=self.max_workers
+            )
+        else:
+            llm_decisions = {}
+            for symbol, df in valid_symbols.items():
+                latest_data = df.iloc[-1].to_dict()
+                
+                sentiment_data = analysis_results['sentiment_signals'].get(symbol, {
+                    'overall_sentiment': 0.0,
+                    'signal': 'neutral'
+                })
+                
+                alpha_data = analysis_results['alpha_signals'].get(symbol, {
+                    'combined_score': 0.0
+                })
+                
+                from src.utils.indicators import TechnicalIndicators
+                market_regime = TechnicalIndicators.detect_market_regime(df)
+                
+                alpha_data_with_top = alpha_data.copy()
+                alpha_data_with_top['top_alphas'] = analysis_results.get('top_alphas', [])
+                
+                llm_decisions[symbol] = self.llm_trader.generate_trading_decision(
+                    symbol=symbol,
+                    technical_data=latest_data,
+                    sentiment_data=sentiment_data,
+                    alpha_signals=alpha_data_with_top,
+                    market_regime=market_regime,
+                    market_data=df,
+                    portfolio_state=portfolio_state,
+                    risk_context=risk_context
+                )
+        
+        for symbol, df in valid_symbols.items():
             latest_data = df.iloc[-1].to_dict()
             
             sentiment_data = analysis_results['sentiment_signals'].get(symbol, {
@@ -78,25 +177,16 @@ class AnalysisAgent:
             from src.utils.indicators import TechnicalIndicators
             market_regime = TechnicalIndicators.detect_market_regime(df)
             
-            alpha_data_with_top = alpha_data.copy()
-            alpha_data_with_top['top_alphas'] = analysis_results.get('top_alphas', [])
+            llm_decision = llm_decisions.get(symbol, {
+                'action': 'HOLD',
+                'confidence': 0.5,
+                'reasoning': 'No LLM decision available'
+            })
             
-            llm_decision = self.llm_trader.generate_trading_decision(
-                symbol=symbol,
-                technical_data=latest_data,
-                sentiment_data=sentiment_data,
-                alpha_signals=alpha_data_with_top,
-                market_regime=market_regime,
-                market_data=df,
-                portfolio_state=portfolio_state,
-                risk_context=risk_context
-            )
-
             if llm_decision.get('reasoning', '') == 'Fallback decision based on technical indicators':
                 log.warning(f"LLM fallback used for {symbol} - model may not be loaded")
             else:
                 log.info(f"LLM active for {symbol}: {llm_decision['action']} ({llm_decision['confidence']:.2f})")
-
             
             technical_signal = latest_data.get('Signal', 0)
             sentiment_score = sentiment_data.get('overall_sentiment', 0)
@@ -113,9 +203,9 @@ class AnalysisAgent:
             elif llm_decision['action'] == 'SELL':
                 combined_score -= 0.5 * llm_decision['confidence']
             
-            if combined_score > 0.1:  # Lowered from 0.3 for more trades
+            if combined_score > 0.1:
                 final_action = 'BUY'
-            elif combined_score < -0.1:  # Lowered from -0.3 for more trades
+            elif combined_score < -0.1:
                 final_action = 'SELL'
             else:
                 final_action = 'HOLD'
