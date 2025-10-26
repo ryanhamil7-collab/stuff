@@ -177,8 +177,29 @@ class AutopilotDaemon:
                 try:
                     discovered_symbols = self.symbol_discovery.discover_symbols_realtime()
                     if discovered_symbols:
-                        top_symbols = [s['symbol'] for s in discovered_symbols[:10]]
-                        log.info(f"✓ Discovered {len(top_symbols)} high-potential symbols: {', '.join(top_symbols)}")
+                        volatile_symbols = []
+                        stable_symbols = []
+                        
+                        for sym_data in discovered_symbols[:30]:
+                            symbol = sym_data['symbol']
+                            volatility = sym_data.get('volatility', 0)
+                            
+                            if volatility > 0.03:
+                                volatile_symbols.append(symbol)
+                            elif volatility < 0.02:
+                                stable_symbols.append(symbol)
+                            else:
+                                if len(volatile_symbols) < len(stable_symbols):
+                                    volatile_symbols.append(symbol)
+                                else:
+                                    stable_symbols.append(symbol)
+                        
+                        config.data['autopilot']['hybrid']['intraday_symbols'] = volatile_symbols[:15]
+                        config.data['autopilot']['hybrid']['interday_symbols'] = stable_symbols[:15]
+                        
+                        log.info(f"✓ Discovered {len(discovered_symbols)} symbols")
+                        log.info(f"  → {len(volatile_symbols[:15])} volatile (day trading): {', '.join(volatile_symbols[:15])}")
+                        log.info(f"  → {len(stable_symbols[:15])} stable (long-term): {', '.join(stable_symbols[:15])}")
                 except Exception as e:
                     log.error(f"Symbol discovery error: {str(e)}")
             

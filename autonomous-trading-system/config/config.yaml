@@ -54,23 +54,11 @@ data:
     vector_store: "faiss"
   
 symbols:
-  watchlists:
-    - "SP500"
-    - "NASDAQ100"
-  custom_symbols:
-    - "AAPL"
-    - "MSFT"
-    - "GOOGL"
-    - "NVDA"
-    - "TSLA"
-    - "META"
-    - "AMZN"
-    - "AMD"
-    - "NFLX"
-    - "COIN"
+  watchlists: []  # Empty - will be populated by symbol discovery
+  custom_symbols: []  # Empty - system discovers all symbols autonomously
   discovery:
     enabled: true
-    scan_interval: 86400  # Daily
+    scan_interval: 900  # 15 minutes (realtime discovery)
     criteria:
       min_volume: 1000000
       min_price: 5.0
@@ -277,8 +265,8 @@ autopilot:
     interday_allocation: 0.4  # 40% for interday (stable symbols)
     intraday_timeframe: "5min"
     interday_timeframe: "1day"
-    intraday_symbols: ["TSLA", "NVDA", "AMD", "COIN"]  # Volatile
-    interday_symbols: ["MSFT", "AAPL", "GOOGL", "JPM"]  # Stable
+    intraday_symbols: []  # Auto-discovered volatile symbols (high volatility)
+    interday_symbols: []  # Auto-discovered stable symbols (low volatility, high volume)
   
   offline_research:
     enabled: true

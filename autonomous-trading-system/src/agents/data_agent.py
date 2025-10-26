@@ -83,15 +83,25 @@ class DataAgent:
     def discover_symbols(self) -> List[str]:
         log.info("Starting symbol discovery")
         
-        if not config.get('symbols.discovery.enabled', False):
-            log.info("Symbol discovery disabled, using watchlist")
-            return self.fetcher.get_watchlist_symbols()
+        intraday_symbols = config.get('autopilot.hybrid.intraday_symbols', [])
+        interday_symbols = config.get('autopilot.hybrid.interday_symbols', [])
         
+        discovered_symbols = list(set(intraday_symbols + interday_symbols))
+        
+        if discovered_symbols:
+            log.info(f"Using {len(discovered_symbols)} auto-discovered symbols from web scraping")
+            return discovered_symbols
+        
+        custom_symbols = config.get('symbols.custom_symbols', [])
+        if custom_symbols:
+            log.info(f"Using {len(custom_symbols)} custom symbols from config")
+            return custom_symbols
+        
+        log.warning("No discovered symbols found, falling back to watchlist")
         all_symbols = self.fetcher.get_watchlist_symbols()
-        
         filtered_symbols = self.fetcher.filter_symbols_by_criteria(all_symbols[:100])
         
-        log.info(f"Discovered {len(filtered_symbols)} symbols")
+        log.info(f"Discovered {len(filtered_symbols)} symbols from watchlist")
         return filtered_symbols
     
     def get_market_regime(self, symbol: str, data: pd.DataFrame) -> str:
