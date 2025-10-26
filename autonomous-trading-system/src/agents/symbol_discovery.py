@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import yfinance as yf
 from src.data_pipeline import DataFetcher
 from src.models import SentimentAnalyzer
+from src.agents.web_scraper import WebScraper
 from src.utils import log, config
 
 try:
@@ -32,6 +33,7 @@ class SymbolDiscoveryV2:
     def __init__(self, hive_mind=None):
         self.fetcher = DataFetcher()
         self.sentiment_analyzer = SentimentAnalyzer()
+        self.web_scraper = WebScraper()
         self.scaler = StandardScaler()
         self.hive_mind = hive_mind
         
@@ -45,7 +47,8 @@ class SymbolDiscoveryV2:
             'hive_broadcast': True,
             'min_volume': 1000000,
             'min_volatility': 0.02,
-            'min_sentiment': 0.3
+            'min_sentiment': 0.3,
+            'use_web_scraping': True
         })
         
         self.crypto_exchange = None
@@ -115,7 +118,17 @@ class SymbolDiscoveryV2:
         return list(set(tickers))
     
     def _get_stock_tickers(self) -> List[str]:
-        """Get stock and ETF tickers"""
+        """Get stock and ETF tickers from multiple sources"""
+        tickers = []
+        
+        if self.discovery_config.get('use_web_scraping'):
+            try:
+                web_symbols = self.web_scraper.discover_symbols()
+                tickers.extend(web_symbols)
+                log.info(f"✓ Web scraper found {len(web_symbols)} symbols")
+            except Exception as e:
+                log.error(f"Web scraper error: {str(e)}")
+        
         try:
             sp500 = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
             sp500_tickers = sp500['Symbol'].tolist()
