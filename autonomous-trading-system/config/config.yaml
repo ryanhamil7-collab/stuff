@@ -125,7 +125,7 @@ llm:
     - "google/gemma-2b-it"
     - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
- rl:
+rl:
   algorithm: "PPO"  # Options: PPO, PPO_GRPO
   learning_rate: 0.0003
   n_steps: 2048
