@@ -91,13 +91,26 @@ indicators:
   atr_period: 14
 
 llm:
-  model_name: "mistralai/Mistral-7B-Instruct-v0.2"
+  model_name: "mistralai/Mixtral-8x7B-Instruct-v0.1"
   quantization: "4bit"
   max_length: 2048
+  max_new_tokens: 256
   temperature: 0.7
   top_p: 0.9
   use_structured_thesis: true
   compress_after_training: false
+  batch_size: 16
+  
+  ensemble:
+    enabled: true
+    models:
+      - name: "mistralai/Mixtral-8x7B-Instruct-v0.1"
+        weight: 0.6
+        quantization: "4bit"
+      - name: "mistralai/Mistral-7B-Instruct-v0.2"
+        weight: 0.4
+        quantization: "4bit"
+    voting_strategy: "weighted"
   
   fine_tune:
     enabled: true
@@ -112,7 +125,7 @@ llm:
     - "google/gemma-2b-it"
     - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
-rl:
+ rl:
   algorithm: "PPO"  # Options: PPO, PPO_GRPO
   learning_rate: 0.0003
   n_steps: 2048
@@ -125,6 +138,13 @@ rl:
   vf_coef: 0.5
   max_grad_norm: 0.5
   target_sharpe: 1.5
+  
+  live_training:
+    enabled: true
+    buffer_size: 10000
+    update_frequency: 100
+    min_experiences: 64
+    save_interval: 1000
   
   grpo:
     enabled: false

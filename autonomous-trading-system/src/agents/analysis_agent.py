@@ -9,7 +9,7 @@ from src.utils import log, config
 
 class AnalysisAgent:
     
-    def __init__(self, use_prompt_agent: bool = False, use_batch_inference: bool = True, max_workers: int = 4):
+    def __init__(self, use_prompt_agent: bool = False, use_batch_inference: bool = True, max_workers: int = 8, batch_size: int = 16):
         self.sentiment_analyzer = SentimentAnalyzer()
         self.llm_trader = LLMTrader(use_prompt_agent=use_prompt_agent)
         self.alpha_miner = AlphaMining()
@@ -17,9 +17,10 @@ class AnalysisAgent:
         self.use_prompt_agent = use_prompt_agent
         self.use_batch_inference = use_batch_inference
         self.max_workers = max_workers
+        self.batch_size = batch_size
         log.info(f"AnalysisAgent initialized (PromptAgent: {'enabled' if use_prompt_agent else 'disabled'}, "
                 f"Batch Inference: {'enabled' if use_batch_inference else 'disabled'}, "
-                f"Max Workers: {max_workers})")
+                f"Max Workers: {max_workers}, Batch Size: {batch_size})")
     
     def analyze_market_data(
         self, 
@@ -129,7 +130,7 @@ class AnalysisAgent:
             
             llm_decisions = self.llm_trader.batch_generate_decisions(
                 symbols_data,
-                batch_size=self.max_workers
+                batch_size=self.batch_size
             )
         else:
             llm_decisions = {}
