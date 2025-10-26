@@ -99,7 +99,7 @@ def run_backtest(symbols=None, start_date=None, end_date=None, no_lookahead_chec
         trade_history.to_csv('data/backtest_trade_history.csv', index=False)
         log.info("Trade history saved to data/backtest_trade_history.csv")
 
-def run_autopilot():
+def run_autopilot(use_alpaca=True):
     log.info("Starting autopilot mode")
     
     mode = config.get('autopilot.mode', 'paper')
@@ -112,9 +112,13 @@ def run_autopilot():
     log.info("AUTONOMOUS TRADING SYSTEM - AUTOPILOT MODE")
     log.info("=" * 80)
     log.info("⚠️  PAPER TRADING ONLY - No real money at risk")
+    if use_alpaca:
+        log.info("🚀 Alpaca Paper Trading ENABLED - Trades will appear in Alpaca dashboard")
+    else:
+        log.info("📊 Simulation mode - No real trades")
     log.info("=" * 80)
     
-    autopilot = AutopilotDaemon()
+    autopilot = AutopilotDaemon(use_alpaca=use_alpaca)
     autopilot.run_continuous()
 
 def run_dashboard():
@@ -229,6 +233,12 @@ Examples:
         help='Skip benchmark strategy comparison'
     )
     
+    parser.add_argument(
+        '--no-alpaca',
+        action='store_true',
+        help='Disable Alpaca integration (simulation mode only)'
+    )
+    
     args = parser.parse_args()
     
     log.info("=" * 80)
@@ -248,7 +258,7 @@ Examples:
             )
         
         elif args.mode == 'autopilot':
-            run_autopilot()
+            run_autopilot(use_alpaca=not args.no_alpaca)
         
         elif args.mode == 'dashboard':
             run_dashboard()
