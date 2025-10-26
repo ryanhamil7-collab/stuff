@@ -18,7 +18,8 @@ class BacktestEngine:
         self,
         initial_capital: float = None,
         enable_execution_delays: bool = None,
-        delay_config: Optional[DelayConfig] = None
+        delay_config: Optional[DelayConfig] = None,
+        use_prompt_agent: bool = False
     ):
         if initial_capital is None:
             initial_capital = config.get('trading.initial_capital', 100000.0)
@@ -29,9 +30,10 @@ class BacktestEngine:
         self.initial_capital = initial_capital
         self.portfolio = Portfolio(initial_capital)
         self.risk_manager = RiskManager(initial_capital)
+        self.use_prompt_agent = use_prompt_agent
         
         self.data_agent = DataAgent()
-        self.analysis_agent = AnalysisAgent()
+        self.analysis_agent = AnalysisAgent(use_prompt_agent=use_prompt_agent)
         self.decision_agent = DecisionAgent()
         
         self.enable_execution_delays = enable_execution_delays

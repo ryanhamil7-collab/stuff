@@ -8,12 +8,13 @@ from src.utils import log, config
 
 class AnalysisAgent:
     
-    def __init__(self):
+    def __init__(self, use_prompt_agent: bool = False):
         self.sentiment_analyzer = SentimentAnalyzer()
-        self.llm_trader = LLMTrader()
+        self.llm_trader = LLMTrader(use_prompt_agent=use_prompt_agent)
         self.alpha_miner = AlphaMining()
         self.top_alphas = []
-        log.info("AnalysisAgent initialized")
+        self.use_prompt_agent = use_prompt_agent
+        log.info(f"AnalysisAgent initialized (PromptAgent: {'enabled' if use_prompt_agent else 'disabled'})")
     
     def analyze_market_data(
         self, 

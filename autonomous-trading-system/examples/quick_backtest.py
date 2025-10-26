@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import argparse
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -10,13 +11,27 @@ from src.agents import DataAgent
 from src.backtesting import BacktestEngine
 
 def main():
+    parser = argparse.ArgumentParser(description='Run quick backtest')
+    parser.add_argument('--symbols', nargs='+', default=['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA'],
+                        help='Stock symbols to backtest')
+    parser.add_argument('--start', default='2023-01-01', help='Start date (YYYY-MM-DD)')
+    parser.add_argument('--end', default='2024-10-24', help='End date (YYYY-MM-DD)')
+    parser.add_argument('--use-prompt-agent', action='store_true',
+                        help='Enable PromptAgent for context-aware LLM decisions (slower but more sophisticated)')
+    args = parser.parse_args()
+    
     log.info("=" * 80)
     log.info("QUICK BACKTEST EXAMPLE")
     log.info("=" * 80)
     
-    symbols = ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA']
-    start_date = '2023-01-01'
-    end_date = '2024-10-24'
+    symbols = args.symbols
+    start_date = args.start
+    end_date = args.end
+    
+    if args.use_prompt_agent:
+        log.info("⚠️  PromptAgent ENABLED - Slower but more context-aware decisions")
+    else:
+        log.info("⚡ Fast mode - PromptAgent disabled (use --use-prompt-agent to enable)")
     
     log.info(f"Fetching data for: {', '.join(symbols)}")
     log.info(f"Date range: {start_date} to {end_date}")
@@ -33,7 +48,10 @@ def main():
     
     log.info(f"Running backtest on {len(processed_data)} symbols...")
     
-    backtest_engine = BacktestEngine(initial_capital=100000.0)
+    backtest_engine = BacktestEngine(
+        initial_capital=100000.0,
+        use_prompt_agent=args.use_prompt_agent
+    )
     result = backtest_engine.run_backtest(
         processed_data,
         start_date=start_date,
