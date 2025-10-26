@@ -242,18 +242,20 @@ Entry signals to watch for:
     
     def _get_output_format(self) -> str:
         """Specify required output format"""
-        return """Provide your decision in JSON format:
-{
-    "action": "BUY" | "SELL" | "HOLD",
-    "confidence": 0.0-1.0,
-    "reasoning": "Brief explanation of decision (max 200 chars)"
-}
+        return """Respond with ONLY valid JSON in this exact format:
+{"action": "BUY", "confidence": 0.75, "reasoning": "Your brief explanation here"}
 
-IMPORTANT:
+Valid actions: BUY, SELL, or HOLD
+Confidence: number between 0.0 and 1.0
+
+CRITICAL RULES:
 - Be conservative - prefer HOLD over risky trades
-- Only BUY when multiple signals align
-- Only SELL when clear exit signals present
-- Confidence should reflect signal strength (0.5-0.7 typical, 0.8+ rare)"""
+- Only BUY when multiple bullish signals align
+- Only SELL when clear bearish signals or exit conditions met
+- Typical confidence: 0.5-0.7 (use 0.8+ only for very strong signals)
+- Output ONLY the JSON, no other text
+
+Trading Decision:"""
     
     def track_decision(self, symbol: str, decision: Dict):
         """Track decision for analysis"""

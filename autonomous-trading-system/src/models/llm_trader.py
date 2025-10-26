@@ -174,6 +174,8 @@ Trading Decision:"""
             
             decision_text = response.split("Trading Decision:")[-1].strip()
             
+            log.debug(f"LLM raw response for {symbol}: {decision_text[:300]}")
+            
             decision = self._parse_decision(decision_text)
             
             log.info(f"LLM decision for {symbol}: {decision['action']} (confidence: {decision['confidence']:.2f})")
@@ -251,18 +253,43 @@ Trading Decision:"""
     def _extract_decision_from_text(self, text: str) -> Dict:
         text_lower = text.lower()
         
-        if 'buy' in text_lower:
-            action = 'BUY'
-        elif 'sell' in text_lower:
-            action = 'SELL'
-        else:
-            action = 'HOLD'
+        import re
+        action_pattern = r'"action"\s*:\s*"?(BUY|SELL|HOLD)"?'
+        action_match = re.search(action_pattern, text, re.IGNORECASE)
         
-        confidence = 0.5
-        if 'high confidence' in text_lower or 'strong' in text_lower:
-            confidence = 0.8
-        elif 'low confidence' in text_lower or 'weak' in text_lower:
-            confidence = 0.3
+        if action_match:
+            action = action_match.group(1).upper()
+        else:
+            sell_indicators = ['recommend sell', 'should sell', 'action: sell', 'decision: sell', 'suggest sell']
+            buy_indicators = ['recommend buy', 'should buy', 'action: buy', 'decision: buy', 'suggest buy']
+            hold_indicators = ['recommend hold', 'should hold', 'action: hold', 'decision: hold', 'suggest hold']
+            
+            if any(indicator in text_lower for indicator in sell_indicators):
+                action = 'SELL'
+            elif any(indicator in text_lower for indicator in buy_indicators):
+                action = 'BUY'
+            elif any(indicator in text_lower for indicator in hold_indicators):
+                action = 'HOLD'
+            else:
+                action = 'HOLD'
+        
+        confidence_pattern = r'"confidence"\s*:\s*([0-9.]+)'
+        confidence_match = re.search(confidence_pattern, text)
+        
+        if confidence_match:
+            try:
+                confidence = float(confidence_match.group(1))
+                confidence = max(0.0, min(1.0, confidence))
+            except:
+                confidence = 0.5
+        else:
+            confidence = 0.5
+            if 'high confidence' in text_lower or 'very confident' in text_lower:
+                confidence = 0.8
+            elif 'low confidence' in text_lower or 'not confident' in text_lower:
+                confidence = 0.3
+        
+        log.debug(f"Extracted from text: action={action}, confidence={confidence}")
         
         return {
             'action': action,
