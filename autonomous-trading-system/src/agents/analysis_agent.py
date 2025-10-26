@@ -9,7 +9,7 @@ from src.utils import log, config
 
 class AnalysisAgent:
     
-    def __init__(self, use_prompt_agent: bool = False, use_batch_inference: bool = True, max_workers: int = 8, batch_size: int = 16):
+    def __init__(self, use_prompt_agent: bool = False, use_batch_inference: bool = True, max_workers: int = 16, batch_size: int = 32):
         self.sentiment_analyzer = SentimentAnalyzer()
         self.llm_trader = LLMTrader(use_prompt_agent=use_prompt_agent)
         self.alpha_miner = AlphaMining()
