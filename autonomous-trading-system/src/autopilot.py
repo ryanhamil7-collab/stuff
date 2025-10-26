@@ -7,6 +7,7 @@ import pytz
 from typing import Dict, Optional
 from dotenv import load_dotenv
 from src.agents import DataAgent, AnalysisAgent, DecisionAgent
+from src.agents.offline_research import OfflineResearchEngine
 from src.strategies.portfolio import Portfolio
 from src.strategies import RiskManager
 from src.utils import log, config
@@ -22,10 +23,17 @@ except ImportError:
 
 class AutopilotDaemon:
     
-    def __init__(self, use_alpaca: bool = True):
+    def __init__(self, use_alpaca: bool = True, enable_research: bool = True):
         self.data_agent = DataAgent()
         self.analysis_agent = AnalysisAgent()
         self.decision_agent = DecisionAgent()
+        
+        self.enable_research = enable_research
+        if self.enable_research:
+            self.research_engine = OfflineResearchEngine()
+            log.info("Offline research engine enabled")
+        else:
+            self.research_engine = None
         
         self.use_alpaca = use_alpaca and ALPACA_AVAILABLE
         self.alpaca_api: Optional[tradeapi.REST] = None
@@ -137,10 +145,19 @@ class AutopilotDaemon:
     def trading_cycle(self):
         try:
             log.info("=" * 80)
-            log.info(f"Starting trading cycle at {datetime.now()}")
+            log.info(f"Starting cycle at {datetime.now()}")
             
             if not self.is_trading_hours():
-                log.info("Outside trading hours, skipping cycle")
+                log.info("Outside trading hours")
+                if self.enable_research and self.research_engine:
+                    log.info("Running offline research and training...")
+                    try:
+                        self.research_engine.run_offline_research()
+                        log.info("✓ Offline research completed")
+                    except Exception as e:
+                        log.error(f"Error in offline research: {str(e)}")
+                else:
+                    log.info("Offline research disabled, skipping cycle")
                 return
             
             if self.alpaca_api:
