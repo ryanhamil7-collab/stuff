@@ -2,8 +2,11 @@
 # python>=3.10  # Invalid pip requirement - removed
 
 # Data Processing
-pandas>=2.0.0,<2.3.0
-numpy>=1.24.0,<2.0.0
+# Note: pandas-ta 0.4.71b0 requires pandas>=2.3.2, numpy>=2.2.6, and numba==0.61.2
+# These versions are newer than Colab defaults but are required for full functionality
+pandas>=2.3.2
+numpy>=2.2.6
+numba==0.61.2
 scipy>=1.10.0
 
 # Market Data APIs
