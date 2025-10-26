@@ -1,23 +1,30 @@
 import numpy as np
 import pandas as pd
-import gymnasium as gym
-from gymnasium import spaces
 from typing import Dict, List, Tuple
 from datetime import datetime
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv
 from src.strategies import RiskManager
 from src.strategies.portfolio import Portfolio
 from src.utils import log, config
 
-class TradingEnvironment(gym.Env):
-    
-    def __init__(
-        self,
-        data: Dict[str, pd.DataFrame],
-        initial_capital: float = 100000.0
-    ):
-        super(TradingEnvironment, self).__init__()
+try:
+    import gymnasium as gym
+    from gymnasium import spaces
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    RL_AVAILABLE = True
+except ImportError:
+    RL_AVAILABLE = False
+    log.warning("RL dependencies (gymnasium, stable-baselines3) not available. RL training disabled.")
+
+if RL_AVAILABLE:
+    class TradingEnvironment(gym.Env):
+        
+        def __init__(
+            self,
+            data: Dict[str, pd.DataFrame],
+            initial_capital: float = 100000.0
+        ):
+            super(TradingEnvironment, self).__init__()
         
         self.data = data
         self.symbols = list(data.keys())
@@ -47,142 +54,146 @@ class TradingEnvironment(gym.Env):
         )
         
         self.reset()
-    
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
         
-        self.current_step = 50
-        self.portfolio.reset()
-        self.risk_manager = RiskManager(self.initial_capital)
-        
-        return self._get_observation(), {}
-    
-    def _get_observation(self) -> np.ndarray:
-        obs = []
-        
-        for symbol in self.symbols:
-            df = self.data[symbol]
-            if self.current_step >= len(df):
-                obs.extend([0.0] * 20)
-                continue
+        def reset(self, seed=None, options=None):
+            super().reset(seed=seed)
             
-            row = df.iloc[self.current_step]
+            self.current_step = 50
+            self.portfolio.reset()
+            self.risk_manager = RiskManager(self.initial_capital)
             
-            features = [
-                row.get('Close', 0) / 100.0,
-                row.get('Volume', 0) / 1e6,
-                row.get('RSI', 50) / 100.0,
-                row.get('MACD', 0) / 10.0,
-                row.get('MACD_Signal', 0) / 10.0,
-                row.get('SMA_20', 0) / 100.0,
-                row.get('SMA_50', 0) / 100.0,
-                row.get('EMA_12', 0) / 100.0,
-                row.get('EMA_26', 0) / 100.0,
-                row.get('BB_Position', 0.5),
-                row.get('ATR', 0) / 10.0,
-                row.get('ADX', 0) / 100.0,
-                row.get('OBV', 0) / 1e6,
-                row.get('VWAP', 0) / 100.0,
-                row.get('Stoch_K', 50) / 100.0,
-                row.get('Stoch_D', 50) / 100.0,
-                row.get('Plus_DI', 0) / 100.0,
-                row.get('Minus_DI', 0) / 100.0,
-                row.get('BB_Width', 0) / 10.0,
-                row.get('Signal', 0)
-            ]
-            
-            obs.extend(features)
+            return self._get_observation(), {}
         
-        total_value = self.portfolio.get_total_value(self._get_current_prices())
-        obs.append(total_value / self.initial_capital)
-        obs.append(len(self.portfolio.positions) / 10.0)
-        obs.append(self.portfolio.cash / self.initial_capital)
-        
-        return np.array(obs, dtype=np.float32)
-    
-    def _get_current_prices(self) -> Dict[str, float]:
-        prices = {}
-        for symbol in self.symbols:
-            df = self.data[symbol]
-            if self.current_step < len(df):
-                prices[symbol] = df.iloc[self.current_step]['Close']
-            else:
-                prices[symbol] = 0.0
-        return prices
-    
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
-        current_prices = self._get_current_prices()
-        
-        for i, symbol in enumerate(self.symbols):
-            action_value = float(action[i])
-            price = current_prices.get(symbol, 0)
+        def _get_observation(self) -> np.ndarray:
+            obs = []
             
-            if price == 0:
-                continue
-            
-            if action_value > 0.3 and not self.portfolio.has_position(symbol):
-                shares = self.risk_manager.calculate_position_size_fixed(price)
+            for symbol in self.symbols:
+                df = self.data[symbol]
+                if self.current_step >= len(df):
+                    obs.extend([0.0] * 20)
+                    continue
                 
-                if shares > 0:
-                    equity_series = pd.Series(self.portfolio.equity_curve)
-                    is_valid, msg = self.risk_manager.validate_trade(
-                        symbol, price, shares,
-                        self.portfolio.get_open_positions(),
-                        equity_series
-                    )
-                    
-                    if is_valid:
-                        self.portfolio.open_position(symbol, shares, price)
+                row = df.iloc[self.current_step]
+                
+                features = [
+                    row.get('Close', 0) / 100.0,
+                    row.get('Volume', 0) / 1e6,
+                    row.get('RSI', 50) / 100.0,
+                    row.get('MACD', 0) / 10.0,
+                    row.get('MACD_Signal', 0) / 10.0,
+                    row.get('SMA_20', 0) / 100.0,
+                    row.get('SMA_50', 0) / 100.0,
+                    row.get('EMA_12', 0) / 100.0,
+                    row.get('EMA_26', 0) / 100.0,
+                    row.get('BB_Position', 0.5),
+                    row.get('ATR', 0) / 10.0,
+                    row.get('ADX', 0) / 100.0,
+                    row.get('OBV', 0) / 1e6,
+                    row.get('VWAP', 0) / 100.0,
+                    row.get('Stoch_K', 50) / 100.0,
+                    row.get('Stoch_D', 50) / 100.0,
+                    row.get('Plus_DI', 0) / 100.0,
+                    row.get('Minus_DI', 0) / 100.0,
+                    row.get('BB_Width', 0) / 10.0,
+                    row.get('Signal', 0)
+                ]
+                
+                obs.extend(features)
             
-            elif action_value < -0.3 and self.portfolio.has_position(symbol):
-                self.portfolio.close_position(symbol, price, reason='rl_signal')
+            total_value = self.portfolio.get_total_value(self._get_current_prices())
+            obs.append(total_value / self.initial_capital)
+            obs.append(len(self.portfolio.positions) / 10.0)
+            obs.append(self.portfolio.cash / self.initial_capital)
+            
+            return np.array(obs, dtype=np.float32)
         
-        self.portfolio.update_positions(current_prices)
+        def _get_current_prices(self) -> Dict[str, float]:
+            prices = {}
+            for symbol in self.symbols:
+                df = self.data[symbol]
+                if self.current_step < len(df):
+                    prices[symbol] = df.iloc[self.current_step]['Close']
+                else:
+                    prices[symbol] = 0.0
+            return prices
         
-        reward = self._calculate_reward()
+        def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
+            current_prices = self._get_current_prices()
+            
+            for i, symbol in enumerate(self.symbols):
+                action_value = float(action[i])
+                price = current_prices.get(symbol, 0)
+                
+                if price == 0:
+                    continue
+                
+                if action_value > 0.3 and not self.portfolio.has_position(symbol):
+                    shares = self.risk_manager.calculate_position_size_fixed(price)
+                    
+                    if shares > 0:
+                        equity_series = pd.Series(self.portfolio.equity_curve)
+                        is_valid, msg = self.risk_manager.validate_trade(
+                            symbol, price, shares,
+                            self.portfolio.get_open_positions(),
+                            equity_series
+                        )
+                        
+                        if is_valid:
+                            self.portfolio.open_position(symbol, shares, price)
+                
+                elif action_value < -0.3 and self.portfolio.has_position(symbol):
+                    self.portfolio.close_position(symbol, price, reason='rl_signal')
+            
+            self.portfolio.update_positions(current_prices)
+            
+            reward = self._calculate_reward()
+            
+            self.current_step += 1
+            
+            done = self.current_step >= self.max_steps
+            truncated = False
+            
+            obs = self._get_observation()
+            
+            info = {
+                'portfolio_value': self.portfolio.get_total_value(current_prices),
+                'num_positions': len(self.portfolio.positions),
+                'cash': self.portfolio.cash
+            }
+            
+            return obs, reward, done, truncated, info
         
-        self.current_step += 1
-        
-        done = self.current_step >= self.max_steps
-        truncated = False
-        
-        obs = self._get_observation()
-        
-        info = {
-            'portfolio_value': self.portfolio.get_total_value(current_prices),
-            'num_positions': len(self.portfolio.positions),
-            'cash': self.portfolio.cash
-        }
-        
-        return obs, reward, done, truncated, info
-    
-    def _calculate_reward(self) -> float:
-        if len(self.portfolio.equity_curve) < 2:
-            return 0.0
-        
-        equity_series = pd.Series(self.portfolio.equity_curve)
-        returns = equity_series.pct_change().dropna()
-        
-        if len(returns) == 0:
-            return 0.0
-        
-        recent_return = returns.iloc[-1] if len(returns) > 0 else 0.0
-        
-        sharpe = 0.0
-        if len(returns) > 10:
-            sharpe = returns.mean() / (returns.std() + 1e-8) * np.sqrt(252)
-        
-        cumulative_max = equity_series.expanding().max()
-        drawdown = (equity_series - cumulative_max) / cumulative_max
-        current_drawdown = drawdown.iloc[-1]
-        
-        reward = (
-            recent_return * 100 +
-            sharpe * 0.1 -
-            abs(current_drawdown) * 10
-        )
-        
-        return float(reward)
+        def _calculate_reward(self) -> float:
+            if len(self.portfolio.equity_curve) < 2:
+                return 0.0
+            
+            equity_series = pd.Series(self.portfolio.equity_curve)
+            returns = equity_series.pct_change().dropna()
+            
+            if len(returns) == 0:
+                return 0.0
+            
+            recent_return = returns.iloc[-1] if len(returns) > 0 else 0.0
+            
+            sharpe = 0.0
+            if len(returns) > 10:
+                sharpe = returns.mean() / (returns.std() + 1e-8) * np.sqrt(252)
+            
+            cumulative_max = equity_series.expanding().max()
+            drawdown = (equity_series - cumulative_max) / cumulative_max
+            current_drawdown = drawdown.iloc[-1]
+            
+            reward = (
+                recent_return * 100 +
+                sharpe * 0.1 -
+                abs(current_drawdown) * 10
+            )
+            
+            return float(reward)
+else:
+    class TradingEnvironment:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("RL dependencies not available. Install gymnasium and stable-baselines3 to use RL features.")
 
 class DecisionAgent:
     
@@ -197,6 +208,10 @@ class DecisionAgent:
         data: Dict[str, pd.DataFrame],
         total_timesteps: int = 10000
     ):
+        if not RL_AVAILABLE:
+            log.error("Cannot train RL model: gymnasium and stable-baselines3 not available")
+            return
+        
         log.info(f"Training RL model with {total_timesteps} timesteps")
         
         self.env = DummyVecEnv([lambda: TradingEnvironment(data)])

@@ -5,10 +5,17 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime, timedelta
 import yfinance as yf
-import ccxt
 from src.data_pipeline import DataFetcher
 from src.models import SentimentAnalyzer
 from src.utils import log, config
+
+try:
+    import ccxt
+    CCXT_AVAILABLE = True
+except ImportError:
+    CCXT_AVAILABLE = False
+    ccxt = None
+    log.warning("ccxt not available. Crypto discovery disabled.")
 
 class SymbolDiscoveryV2:
     """
@@ -42,7 +49,7 @@ class SymbolDiscoveryV2:
         })
         
         self.crypto_exchange = None
-        if self.discovery_config.get('include_crypto'):
+        if self.discovery_config.get('include_crypto') and CCXT_AVAILABLE:
             try:
                 self.crypto_exchange = ccxt.binance()
             except Exception as e:

@@ -1,11 +1,12 @@
 from .backtest_engine import BacktestEngine
-from .execution_delays import ExecutionDelays
-from .monte_carlo import MonteCarlo
-from .walk_forward import WalkForward
+from .execution_delays import ExecutionDelaySimulator, DelayAwareBacktester
+from .monte_carlo import MonteCarloSimulator
+from .walk_forward import WalkForwardValidator
 
 __all__ = [
     'BacktestEngine',
-    'ExecutionDelays',
-    'MonteCarlo',
-    'WalkForward'
+    'ExecutionDelaySimulator',
+    'DelayAwareBacktester',
+    'MonteCarloSimulator',
+    'WalkForwardValidator'
 ]
