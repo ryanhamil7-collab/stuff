@@ -173,27 +173,56 @@ Trading Decision:"""
                 json_start = decision_text.index('{')
                 json_end = decision_text.rindex('}') + 1
                 json_str = decision_text[json_start:json_end]
-                decision_dict = json.loads(json_str)
                 
-                if 'action' in decision_dict and 'confidence' in decision_dict and 'symbol' in decision_dict:
+                try:
+                    decision_dict = json.loads(json_str)
+                except json.JSONDecodeError as je:
+                    log.warning(f"JSON parse error at line {je.lineno}, col {je.colno}: {je.msg}")
+                    log.warning(f"Attempting to repair JSON...")
+                    
+                    json_str_fixed = json_str
+                    
+                    import re
+                    json_str_fixed = re.sub(r'(\w+):', r'"\1":', json_str_fixed)
+                    
+                    json_str_fixed = json_str_fixed.replace("'", '"')
+                    
+                    json_str_fixed = re.sub(r',\s*}', '}', json_str_fixed)
+                    json_str_fixed = re.sub(r',\s*]', ']', json_str_fixed)
+                    
                     try:
-                        validated = validate_llm_output(decision_dict, TradingSignal)
-                        return {
-                            'action': validated.action,
-                            'confidence': validated.confidence,
-                            'reasoning': validated.reasoning,
-                            'risk_level': 'MEDIUM',
-                            'time_horizon': 'MEDIUM'
-                        }
-                    except ValueError as ve:
-                        log.warning(f"LLM output validation failed: {str(ve)}")
-                        log.warning("Falling back to unvalidated output")
-                        return decision_dict
+                        decision_dict = json.loads(json_str_fixed)
+                        log.info("Successfully repaired JSON")
+                    except json.JSONDecodeError:
+                        log.warning("JSON repair failed, extracting from text")
+                        return self._extract_decision_from_text(decision_text)
+                
+                if 'action' in decision_dict and 'confidence' in decision_dict:
+                    action = str(decision_dict['action']).upper()
+                    if action not in ['BUY', 'SELL', 'HOLD']:
+                        log.warning(f"Invalid action '{action}', defaulting to HOLD")
+                        action = 'HOLD'
+                    
+                    try:
+                        confidence = float(decision_dict['confidence'])
+                        confidence = max(0.0, min(1.0, confidence))
+                    except (ValueError, TypeError):
+                        log.warning(f"Invalid confidence value, defaulting to 0.5")
+                        confidence = 0.5
+                    
+                    return {
+                        'action': action,
+                        'confidence': confidence,
+                        'reasoning': str(decision_dict.get('reasoning', 'No reasoning provided'))[:200],
+                        'risk_level': 'MEDIUM',
+                        'time_horizon': 'MEDIUM'
+                    }
             
             return self._extract_decision_from_text(decision_text)
             
         except Exception as e:
             log.error(f"Error parsing decision: {str(e)}")
+            log.debug(f"Decision text: {decision_text[:500]}")
             return {
                 'action': 'HOLD',
                 'confidence': 0.5,

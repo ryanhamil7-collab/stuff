@@ -125,7 +125,17 @@ class AlphaMining:
             if valid_mask.sum() < 10:
                 return 0.0
             
-            correlation = alpha_values[valid_mask].corr(returns[valid_mask], method='spearman')
+            alpha_valid = alpha_values[valid_mask]
+            returns_valid = returns[valid_mask]
+            
+            if alpha_valid.std() == 0 or returns_valid.std() == 0:
+                return 0.0
+            
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=RuntimeWarning)
+                correlation = alpha_valid.corr(returns_valid, method='spearman')
+            
             return correlation if not np.isnan(correlation) else 0.0
             
         except Exception as e:
@@ -135,7 +145,12 @@ class AlphaMining:
     def calculate_turnover(self, alpha_values: pd.Series) -> float:
         try:
             changes = alpha_values.diff().abs()
-            turnover = changes.mean() / alpha_values.abs().mean()
+            alpha_mean = alpha_values.abs().mean()
+            
+            if alpha_mean == 0 or np.isnan(alpha_mean):
+                return 0.0
+            
+            turnover = changes.mean() / alpha_mean
             return turnover if not np.isnan(turnover) else 0.0
         except Exception as e:
             log.error(f"Error calculating turnover: {str(e)}")
