@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 from src.agents import DataAgent, AnalysisAgent, DecisionAgent
 from src.agents.offline_research import OfflineResearchEngine
+from src.agents.symbol_discovery import SymbolDiscoveryV2
 from src.strategies.portfolio import Portfolio
 from src.strategies import RiskManager
 from src.utils import log, config
@@ -23,7 +24,7 @@ except ImportError:
 
 class AutopilotDaemon:
     
-    def __init__(self, use_alpaca: bool = True, enable_research: bool = True):
+    def __init__(self, use_alpaca: bool = True, enable_research: bool = True, enable_symbol_discovery: bool = True):
         self.data_agent = DataAgent()
         self.analysis_agent = AnalysisAgent()
         self.decision_agent = DecisionAgent()
@@ -34,6 +35,13 @@ class AutopilotDaemon:
             log.info("Offline research engine enabled")
         else:
             self.research_engine = None
+        
+        self.enable_symbol_discovery = enable_symbol_discovery
+        if self.enable_symbol_discovery:
+            self.symbol_discovery = SymbolDiscoveryV2()
+            log.info("Symbol discovery enabled (web scraping + AI ranking)")
+        else:
+            self.symbol_discovery = None
         
         self.use_alpaca = use_alpaca and ALPACA_AVAILABLE
         self.alpaca_api: Optional[tradeapi.REST] = None
@@ -163,6 +171,16 @@ class AutopilotDaemon:
             if self.alpaca_api:
                 log.info("Step 0: Syncing Alpaca account")
                 self._sync_alpaca_positions()
+            
+            if self.enable_symbol_discovery and self.symbol_discovery:
+                log.info("Step 0.5: Discovering new trading symbols")
+                try:
+                    discovered_symbols = self.symbol_discovery.discover_symbols_realtime()
+                    if discovered_symbols:
+                        top_symbols = [s['symbol'] for s in discovered_symbols[:10]]
+                        log.info(f"✓ Discovered {len(top_symbols)} high-potential symbols: {', '.join(top_symbols)}")
+                except Exception as e:
+                    log.error(f"Symbol discovery error: {str(e)}")
             
             log.info("Step 1: Collecting market data")
             data_result = self.data_agent.run()

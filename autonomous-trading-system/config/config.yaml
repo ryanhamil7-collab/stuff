@@ -371,10 +371,11 @@ symbol_discovery:
   enabled: true
   mode: "realtime"
   frequency_minutes: 15
-  max_symbols: 20
+  max_symbols: 30
   include_crypto: true
   include_options: true
   hive_broadcast: true
+  use_web_scraping: true
   min_volume: 1000000
   min_volatility: 0.02
   min_sentiment: 0.3
