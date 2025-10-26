@@ -2,20 +2,24 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from typing import Dict, List, Optional
 import json
+import pandas as pd
 from src.utils import log, config
 from src.models.llm_schemas import TradingSignal, validate_llm_output
 from src.models.thesis_templates import ThesisPromptTemplate, StructuredThesis
+from src.agents.prompt_agent import PromptAgent
 
 class LLMTrader:
     
-    def __init__(self, model_name: str = None, use_structured_thesis: bool = True):
+    def __init__(self, model_name: str = None, use_structured_thesis: bool = True, use_prompt_agent: bool = True):
         if model_name is None:
             model_name = config.get('llm.model_name', 'mistralai/Mistral-7B-Instruct-v0.2')
         
         self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.use_structured_thesis = use_structured_thesis
+        self.use_prompt_agent = use_prompt_agent
         self.thesis_template = ThesisPromptTemplate()
+        self.prompt_agent = PromptAgent() if use_prompt_agent else None
         
         log.info(f"Loading LLM model: {model_name}")
         log.info(f"Structured thesis format: {'enabled' if use_structured_thesis else 'disabled'}")
@@ -113,7 +117,10 @@ Trading Decision:"""
         technical_data: Dict, 
         sentiment_data: Dict = None,
         alpha_signals: Dict = None,
-        market_regime: str = "unknown"
+        market_regime: str = "unknown",
+        market_data: pd.DataFrame = None,
+        portfolio_state: Dict = None,
+        risk_context: Dict = None
     ) -> Dict:
         if self.model is None or self.tokenizer is None:
             log.warning("LLM model not available, using fallback logic")
@@ -128,7 +135,17 @@ Trading Decision:"""
             alpha_signals = {'combined_score': 0.0}
         
         try:
-            if self.use_structured_thesis:
+            if self.use_prompt_agent and self.prompt_agent and market_data is not None:
+                prompt = self.prompt_agent.build_trading_prompt(
+                    symbol=symbol,
+                    market_data=market_data,
+                    technical_signals=technical_data,
+                    sentiment_score=sentiment_data.get('overall_sentiment', 0.0),
+                    alpha_signals=alpha_signals.get('top_alphas') if isinstance(alpha_signals, dict) else None,
+                    portfolio_state=portfolio_state,
+                    risk_context=risk_context
+                )
+            elif self.use_structured_thesis:
                 prompt = self.thesis_template.create_structured_prompt(
                     symbol, technical_data, sentiment_data, alpha_signals, market_regime
                 )

@@ -51,7 +51,9 @@ class AnalysisAgent:
     def generate_trading_signals(
         self,
         processed_data: Dict[str, pd.DataFrame],
-        analysis_results: Dict
+        analysis_results: Dict,
+        portfolio_state: Dict = None,
+        risk_context: Dict = None
     ) -> Dict[str, Dict]:
         log.info(f"Generating trading signals for {len(processed_data)} symbols")
         
@@ -75,12 +77,18 @@ class AnalysisAgent:
             from src.utils.indicators import TechnicalIndicators
             market_regime = TechnicalIndicators.detect_market_regime(df)
             
+            alpha_data_with_top = alpha_data.copy()
+            alpha_data_with_top['top_alphas'] = analysis_results.get('top_alphas', [])
+            
             llm_decision = self.llm_trader.generate_trading_decision(
                 symbol=symbol,
                 technical_data=latest_data,
                 sentiment_data=sentiment_data,
-                alpha_signals=alpha_data,
-                market_regime=market_regime
+                alpha_signals=alpha_data_with_top,
+                market_regime=market_regime,
+                market_data=df,
+                portfolio_state=portfolio_state,
+                risk_context=risk_context
             )
 
             if llm_decision.get('reasoning', '') == 'Fallback decision based on technical indicators':
