@@ -25,35 +25,35 @@ if RL_AVAILABLE:
             initial_capital: float = 100000.0
         ):
             super(TradingEnvironment, self).__init__()
-        
-        self.data = data
-        self.symbols = list(data.keys())
-        self.initial_capital = initial_capital
-        
-        self.portfolio = Portfolio(initial_capital)
-        self.risk_manager = RiskManager(initial_capital)
-        
-        self.current_step = 0
-        self.max_steps = min(len(df) for df in data.values()) - 1
-        
-        num_features = 20
-        num_symbols = len(self.symbols)
-        
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(num_symbols * num_features + 3,),
-            dtype=np.float32
-        )
-        
-        self.action_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
-            shape=(num_symbols,),
-            dtype=np.float32
-        )
-        
-        self.reset()
+            
+            self.data = data
+            self.symbols = list(data.keys())
+            self.initial_capital = initial_capital
+            
+            self.portfolio = Portfolio(initial_capital)
+            self.risk_manager = RiskManager(initial_capital)
+            
+            self.current_step = 0
+            self.max_steps = min(len(df) for df in data.values()) - 1
+            
+            num_features = 20
+            num_symbols = len(self.symbols)
+            
+            self.observation_space = spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(num_symbols * num_features + 3,),
+                dtype=np.float32
+            )
+            
+            self.action_space = spaces.Box(
+                low=-1.0,
+                high=1.0,
+                shape=(num_symbols,),
+                dtype=np.float32
+            )
+            
+            self.reset()
         
         def reset(self, seed=None, options=None):
             super().reset(seed=seed)
