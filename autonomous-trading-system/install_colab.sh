@@ -48,6 +48,26 @@ pip install -q pyyaml==6.0.1
 pip install -q loguru==0.7.2
 pip install -q tenacity==8.2.3
 pip install -q pydantic==2.5.0
+pip install -q APScheduler==3.10.4
+pip install -q beautifulsoup4==4.12.3
+pip install -q pytz==2024.1
+
+echo "Step 11: Downloading LLM models..."
+python3 -c "
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+print('Downloading Mixtral-8x7B-Instruct (4-bit)...')
+model_name = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    load_in_4bit=True,
+    device_map='auto',
+    torch_dtype=torch.float16
+)
+print('✓ Mixtral-8x7B downloaded and cached')
+"
 
 echo ""
 echo "=================================="
@@ -61,5 +81,6 @@ python3 -c "import yfinance; print('✓ yfinance: OK')"
 python3 -c "import alpaca_trade_api; print('✓ alpaca-trade-api: OK')"
 python3 -c "import torch; print(f'✓ torch: {torch.__version__} (CUDA: {torch.cuda.is_available()})')"
 python3 -c "import transformers; print(f'✓ transformers: {transformers.__version__}')"
+python3 -c "import apscheduler; print(f'✓ APScheduler: {apscheduler.__version__}')"
 echo ""
 echo "Ready to launch trading system!"
