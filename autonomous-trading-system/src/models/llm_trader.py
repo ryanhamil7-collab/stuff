@@ -338,7 +338,8 @@ Trading Decision:"""
         """
         if not self.model or not self.tokenizer:
             log.warning("Model not loaded, using fallback decisions")
-            return {symbol: self._fallback_decision(symbol) for symbol in symbols_data}
+            return {symbol: self._fallback_decision(data.get('technical', {})) 
+                    for symbol, data in symbols_data.items()}
         
         decisions = {}
         symbols = list(symbols_data.keys())
@@ -396,7 +397,7 @@ Trading Decision:"""
                     if prompt_end != -1:
                         response = response[prompt_end + len("Trading Decision:"):]
                     
-                    decision = self._parse_decision(response, symbol)
+                    decision = self._parse_decision(response)
                     decisions[symbol] = decision
                     
                     log.debug(f"Batch decision for {symbol}: {decision['action']} (confidence: {decision['confidence']:.2f})")
@@ -404,7 +405,8 @@ Trading Decision:"""
             except Exception as e:
                 log.error(f"Error in batch inference: {str(e)}")
                 for symbol in batch_symbols:
-                    decisions[symbol] = self._fallback_decision(symbol)
+                    data = symbols_data[symbol]
+                    decisions[symbol] = self._fallback_decision(data.get('technical', {}))
         
         log.info(f"Batch processing complete: {len(decisions)} decisions generated")
         return decisions
