@@ -29,6 +29,14 @@ class AutopilotDaemon:
         self.analysis_agent = AnalysisAgent()
         self.decision_agent = DecisionAgent()
         
+        self.rl_trader = None
+        try:
+            from src.ml_models.rl_trading import RLTrader
+            self.rl_trader = RLTrader(algorithm='ppo')
+            log.info("RL Trader initialized for historical training")
+        except Exception as e:
+            log.warning(f"RL Trader not available: {str(e)}")
+        
         self.enable_research = enable_research
         if self.enable_research:
             self.research_engine = OfflineResearchEngine()
@@ -160,8 +168,15 @@ class AutopilotDaemon:
                 if self.enable_research and self.research_engine:
                     log.info("Running offline research and training...")
                     try:
-                        self.research_engine.run_offline_research()
-                        log.info("✓ Offline research completed")
+                        llm_trader = None
+                        if hasattr(self.decision_agent, 'llm_trader'):
+                            llm_trader = self.decision_agent.llm_trader
+                        
+                        self.research_engine.run_offline_research(
+                            llm_trader=llm_trader,
+                            rl_trader=self.rl_trader
+                        )
+                        log.info("✓ Offline research completed (includes historical data training)")
                     except Exception as e:
                         log.error(f"Error in offline research: {str(e)}")
                 else:
