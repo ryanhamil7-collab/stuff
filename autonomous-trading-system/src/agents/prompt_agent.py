@@ -61,7 +61,16 @@ class PromptAgent:
         prompt_parts = []
         
         prompt_parts.append(f"# Trading Decision Request for {symbol}")
-        prompt_parts.append(f"Current Date: {market_data.index[-1].strftime('%Y-%m-%d')}")
+        
+        try:
+            if hasattr(market_data.index[-1], 'strftime'):
+                date_str = market_data.index[-1].strftime('%Y-%m-%d')
+            else:
+                date_str = str(market_data.index[-1])
+        except:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+        
+        prompt_parts.append(f"Current Date: {date_str}")
         prompt_parts.append(f"Current Price: ${current_price:.2f} ({price_change:+.2f}%)")
         prompt_parts.append("")
         
