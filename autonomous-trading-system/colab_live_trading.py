@@ -17,6 +17,10 @@ import sys
 import os
 from pathlib import Path
 
+os.environ['CUDA_HOME'] = '/usr/local/cuda'
+os.environ['LD_LIBRARY_PATH'] = f"{os.environ.get('CUDA_HOME', '')}/lib64:{os.environ.get('LD_LIBRARY_PATH', '')}"
+os.environ['PATH'] = f"{os.environ.get('CUDA_HOME', '')}/bin:{os.environ.get('PATH', '')}"
+
 sys.path.append(str(Path(__file__).parent))
 
 from dotenv import load_dotenv
