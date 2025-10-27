@@ -37,12 +37,16 @@ class DataFetcher:
         try:
             from alpaca.data.requests import StockBarsRequest
             from alpaca.data.timeframe import TimeFrame
+            from datetime import datetime
+            
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
             
             request_params = StockBarsRequest(
                 symbol_or_symbols=symbol,
                 timeframe=TimeFrame.Day,
-                start=start_date,
-                end=end_date
+                start=start_dt,
+                end=end_dt
             )
             
             bars = self.alpaca_client.get_stock_bars(request_params)
