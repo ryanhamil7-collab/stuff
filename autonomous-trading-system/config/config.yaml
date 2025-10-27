@@ -306,6 +306,8 @@ safety:
   circuit_breaker: true
   
 api_keys:
+  alpaca_api_key: "${ALPACA_API_KEY}"
+  alpaca_secret_key: "${ALPACA_SECRET_KEY}"
   alpha_vantage: "${ALPHA_VANTAGE_API_KEY}"
   finnhub: "${FINNHUB_API_KEY}"
   huggingface: "${HUGGINGFACE_TOKEN}"
