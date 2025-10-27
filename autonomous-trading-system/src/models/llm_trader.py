@@ -28,19 +28,45 @@ class LLMTrader:
             quantization = config.get('llm.quantization', '4bit')
             
             if quantization == '4bit' and torch.cuda.is_available():
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_use_double_quant=True
-                )
-                
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    quantization_config=bnb_config,
-                    device_map="auto",
-                    trust_remote_code=True
-                )
+                try:
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_use_double_quant=True
+                    )
+                    
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        quantization_config=bnb_config,
+                        device_map="auto",
+                        trust_remote_code=True
+                    )
+                    log.info("Loaded model with 4-bit quantization")
+                except Exception as quant_error:
+                    log.warning(f"4-bit quantization failed: {quant_error}")
+                    log.info("Falling back to 8-bit quantization")
+                    try:
+                        bnb_config = BitsAndBytesConfig(
+                            load_in_8bit=True,
+                            llm_int8_threshold=6.0
+                        )
+                        self.model = AutoModelForCausalLM.from_pretrained(
+                            model_name,
+                            quantization_config=bnb_config,
+                            device_map="auto",
+                            trust_remote_code=True
+                        )
+                        log.info("Loaded model with 8-bit quantization")
+                    except Exception as quant8_error:
+                        log.warning(f"8-bit quantization failed: {quant8_error}")
+                        log.info("Loading model without quantization (FP16)")
+                        self.model = AutoModelForCausalLM.from_pretrained(
+                            model_name,
+                            torch_dtype=torch.float16,
+                            device_map="auto",
+                            trust_remote_code=True
+                        )
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
@@ -54,13 +80,14 @@ class LLMTrader:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
-            log.info("LLM model loaded successfully")
+            log.info("✓ LLM model loaded successfully")
             log.info(f"Model device: {self.device}")
             log.info(f"Model dtype: {self.model.dtype if hasattr(self.model, 'dtype') else 'unknown'}")
             log.info(f"Quantization: {quantization}")
             
         except Exception as e:
             log.error(f"Error loading LLM model: {str(e)}")
+            log.error("LLM will not be available - using fallback decisions only")
             self.model = None
             self.tokenizer = None
     

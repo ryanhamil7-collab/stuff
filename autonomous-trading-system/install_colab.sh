@@ -37,7 +37,8 @@ pip install -q torch==2.1.0 torchvision torchaudio --index-url https://download.
 echo "Step 8: Installing transformers..."
 pip install -q transformers==4.40.0
 pip install -q accelerate==0.28.0
-pip install -q bitsandbytes==0.43.0
+pip uninstall -y bitsandbytes
+pip install -q bitsandbytes==0.41.1
 
 echo "Step 9: Installing RL libraries..."
 pip install -q stable-baselines3==2.2.1
