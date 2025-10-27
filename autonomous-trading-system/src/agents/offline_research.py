@@ -480,10 +480,14 @@ class OfflineResearchEngine:
                             rl_trader.env = env
                             rl_trader.train(total_timesteps=10000)
                             
-                            checkpoint_path = f"models/checkpoints/rl_trader_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-                            Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
-                            rl_trader.save_model(checkpoint_path)
-                            log.info(f"✓ RL model checkpoint saved: {checkpoint_path}")
+                            metadata = {
+                                'symbol': symbol,
+                                'training_bars': len(df),
+                                'timesteps': 10000,
+                                'date': datetime.now().isoformat()
+                            }
+                            rl_trader.save_model(symbol=symbol, metadata=metadata)
+                            log.info(f"✓ RL model checkpoint saved to Drive for {symbol}")
                     
                     results['rl_training'] = {
                         'success': True,
