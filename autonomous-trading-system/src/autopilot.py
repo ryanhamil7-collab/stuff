@@ -220,6 +220,10 @@ class AutopilotDaemon:
                         log.info(f"✓ Discovered {len(discovered_symbols)} symbols")
                         log.info(f"  → {len(volatile_symbols[:15])} volatile (day trading): {', '.join(volatile_symbols[:15])}")
                         log.info(f"  → {len(stable_symbols[:15])} stable (long-term): {', '.join(stable_symbols[:15])}")
+                        
+                        verify_intraday = config.get('autopilot.hybrid.intraday_symbols', [])
+                        verify_interday = config.get('autopilot.hybrid.interday_symbols', [])
+                        log.info(f"  → Verification: {len(verify_intraday)} intraday, {len(verify_interday)} interday symbols in config")
                 except Exception as e:
                     log.error(f"Symbol discovery error: {str(e)}")
             
