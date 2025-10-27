@@ -34,14 +34,28 @@ pip install -q xgboost==2.0.3
 echo "Step 7: Installing PyTorch..."
 pip install -q torch==2.1.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-echo "Step 8: Installing transformers and quantization..."
+echo "Step 8: Installing transformers..."
 pip install -q transformers==4.40.0
 pip install -q accelerate==0.28.0
-pip install -q auto-gptq==0.7.1 --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu121/
+
+echo "Step 8a: Compiling bitsandbytes for CUDA 12.6..."
+export CUDA_HOME=/usr/local/cuda
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+export PATH=$CUDA_HOME/bin:$PATH
+
+pip uninstall -y bitsandbytes
+
+cd /tmp
+rm -rf bitsandbytes
+git clone https://github.com/TimDettmers/bitsandbytes.git
+cd bitsandbytes
+CUDA_VERSION=126 make cuda12x
+python setup.py install
+cd /content/stuff/autonomous-trading-system
 
 echo "Verifying setup..."
 python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
-python3 -c "from auto_gptq import AutoGPTQForCausalLM; print('✓ AutoGPTQ installed successfully')"
+python3 -c "import bitsandbytes as bnb; print(f'✓ bitsandbytes {bnb.__version__} compiled for CUDA 12.6')"
 
 echo "Step 9: Installing RL libraries..."
 pip install -q stable-baselines3==2.2.1
