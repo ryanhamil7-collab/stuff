@@ -22,6 +22,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from src.utils import log, config
 
+try:
+    from src.utils.drive_storage import DriveStorageManager
+    DRIVE_STORAGE_AVAILABLE = True
+except ImportError:
+    DRIVE_STORAGE_AVAILABLE = False
+    log.warning("Drive storage not available")
+
 class TradingEnvironment(gym.Env):
     """
     Custom Trading Environment for RL
@@ -209,7 +216,8 @@ class RLTrader:
     def __init__(
         self,
         algorithm: str = 'ppo',
-        use_gpu: bool = True
+        use_gpu: bool = True,
+        use_drive_storage: bool = True
     ):
         """
         Initialize RL trader
@@ -217,6 +225,7 @@ class RLTrader:
         Args:
             algorithm: 'ppo' or 'dqn'
             use_gpu: Use GPU if available
+            use_drive_storage: Use Google Drive for persistent storage
         """
         self.config = config.get('ml.rl', {
             'algorithm': 'ppo',
@@ -240,6 +249,14 @@ class RLTrader:
         
         self.model = None
         self.env = None
+        
+        self.drive_storage = None
+        if use_drive_storage and DRIVE_STORAGE_AVAILABLE:
+            try:
+                self.drive_storage = DriveStorageManager()
+                log.info("✓ Drive storage enabled for RL models")
+            except Exception as e:
+                log.warning(f"Failed to initialize Drive storage: {e}")
         
         log.info(f"RLTrader initialized - Algorithm: {self.algorithm.upper()}, Device: {self.device}")
     
@@ -413,19 +430,44 @@ class RLTrader:
         
         return metrics
     
-    def save_model(self, path: str):
-        """Save model to disk"""
+    def save_model(self, path: str = None, symbol: str = None, metadata: Dict = None):
+        """
+        Save model to disk or Drive
+        
+        Args:
+            path: Optional local path (if None, uses Drive storage)
+            symbol: Trading symbol for Drive storage
+            metadata: Optional metadata about the model
+        """
         if self.model is None:
             raise ValueError("No model to save")
         
-        self.model.save(path)
-        log.info(f"Model saved to {path}")
+        if path:
+            self.model.save(path)
+            log.info(f"Model saved to {path}")
+        elif self.drive_storage and symbol:
+            self.drive_storage.save_rl_model(self.model, symbol, metadata)
+        else:
+            raise ValueError("Either path or (drive_storage + symbol) required")
     
-    def load_model(self, path: str):
-        """Load model from disk"""
-        if self.algorithm == 'ppo':
-            self.model = PPO.load(path, device=self.device)
-        elif self.algorithm == 'dqn':
-            self.model = DQN.load(path, device=self.device)
+    def load_model(self, path: str = None, symbol: str = None):
+        """
+        Load model from disk or Drive
         
-        log.info(f"Model loaded from {path}")
+        Args:
+            path: Optional local path (if None, uses Drive storage)
+            symbol: Trading symbol for Drive storage
+        """
+        if path:
+            if self.algorithm == 'ppo':
+                self.model = PPO.load(path, device=self.device)
+            elif self.algorithm == 'dqn':
+                self.model = DQN.load(path, device=self.device)
+            log.info(f"Model loaded from {path}")
+        elif self.drive_storage and symbol:
+            model_class = PPO if self.algorithm == 'ppo' else DQN
+            self.model = self.drive_storage.load_latest_rl_model(symbol, model_class)
+            if self.model is None:
+                log.info(f"No saved model found for {symbol}, will train new model")
+        else:
+            raise ValueError("Either path or (drive_storage + symbol) required")

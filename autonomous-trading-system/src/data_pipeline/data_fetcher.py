@@ -7,15 +7,29 @@ import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 from src.utils import log, config
 
+try:
+    from src.utils.drive_storage import DriveStorageManager
+    DRIVE_STORAGE_AVAILABLE = True
+except ImportError:
+    DRIVE_STORAGE_AVAILABLE = False
+
 class DataFetcher:
     
-    def __init__(self):
+    def __init__(self, use_drive_cache: bool = True):
         self.alpha_vantage_key = config.get('api_keys.alpha_vantage', '')
         self.finnhub_key = config.get('api_keys.finnhub', '')
         self.alpaca_api_key = config.get('api_keys.alpaca_api_key', '')
         self.alpaca_secret_key = config.get('api_keys.alpaca_secret_key', '')
         self.use_alpaca = config.get('data.use_alpaca', False)
         self.cache = {}
+        
+        self.drive_storage = None
+        if use_drive_cache and DRIVE_STORAGE_AVAILABLE:
+            try:
+                self.drive_storage = DriveStorageManager()
+                log.info("✓ Drive storage enabled for data caching")
+            except Exception as e:
+                log.warning(f"Failed to initialize Drive storage: {e}")
         
         if self.use_alpaca and self.alpaca_api_key and self.alpaca_secret_key:
             try:
@@ -88,11 +102,19 @@ class DataFetcher:
             if end_date is None:
                 end_date = datetime.now().strftime('%Y-%m-%d')
             
+            if self.drive_storage:
+                cached_data = self.drive_storage.load_historical_data(symbol, start_date, end_date)
+                if cached_data is not None:
+                    log.info(f"Using cached data for {symbol}")
+                    return cached_data
+            
             log.info(f"Fetching historical data for {symbol} from {start_date} to {end_date}")
             
             if self.use_alpaca and self.alpaca_client:
                 df = self.fetch_from_alpaca(symbol, start_date, end_date)
                 if not df.empty:
+                    if self.drive_storage:
+                        self.drive_storage.save_historical_data(symbol, df, start_date, end_date)
                     return df
                 log.warning(f"Alpaca returned no data for {symbol}, falling back to yfinance")
             
@@ -105,6 +127,9 @@ class DataFetcher:
             
             df.reset_index(inplace=True)
             df['Symbol'] = symbol
+            
+            if self.drive_storage:
+                self.drive_storage.save_historical_data(symbol, df, start_date, end_date)
             
             log.info(f"Successfully fetched {len(df)} rows for {symbol}")
             return df
