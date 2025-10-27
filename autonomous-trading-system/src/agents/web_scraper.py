@@ -235,37 +235,53 @@ class WebScraper:
         
         all_symbols = {}
         
-        yahoo_stocks = self.scrape_yahoo_trending()
-        for stock in yahoo_stocks:
-            symbol = stock['symbol']
-            if symbol not in all_symbols:
-                all_symbols[symbol] = {'score': 0, 'sources': []}
-            all_symbols[symbol]['score'] += 3  # High weight for trending
-            all_symbols[symbol]['sources'].append('yahoo_trending')
+        try:
+            yahoo_stocks = self.scrape_yahoo_trending()
+            for stock in yahoo_stocks:
+                symbol = stock['symbol']
+                if symbol not in all_symbols:
+                    all_symbols[symbol] = {'score': 0, 'sources': []}
+                all_symbols[symbol]['score'] += 3
+                all_symbols[symbol]['sources'].append('yahoo_trending')
+        except Exception as e:
+            log.warning(f"Yahoo trending failed: {e}")
         
-        finviz_gainers = self.scrape_finviz_screener('ta_topgainers')
-        for stock in finviz_gainers:
-            symbol = stock['symbol']
-            if symbol not in all_symbols:
-                all_symbols[symbol] = {'score': 0, 'sources': []}
-            all_symbols[symbol]['score'] += 2  # Medium weight
-            all_symbols[symbol]['sources'].append('finviz_gainers')
+        try:
+            finviz_gainers = self.scrape_finviz_screener('ta_topgainers')
+            for stock in finviz_gainers:
+                symbol = stock['symbol']
+                if symbol not in all_symbols:
+                    all_symbols[symbol] = {'score': 0, 'sources': []}
+                all_symbols[symbol]['score'] += 2
+                all_symbols[symbol]['sources'].append('finviz_gainers')
+        except Exception as e:
+            log.warning(f"Finviz gainers failed: {e}")
         
-        finviz_volatile = self.scrape_finviz_screener('ta_mostvolatile')
-        for stock in finviz_volatile:
-            symbol = stock['symbol']
-            if symbol not in all_symbols:
-                all_symbols[symbol] = {'score': 0, 'sources': []}
-            all_symbols[symbol]['score'] += 2  # Medium weight for volatility
-            all_symbols[symbol]['sources'].append('finviz_volatile')
+        try:
+            finviz_volatile = self.scrape_finviz_screener('ta_mostvolatile')
+            for stock in finviz_volatile:
+                symbol = stock['symbol']
+                if symbol not in all_symbols:
+                    all_symbols[symbol] = {'score': 0, 'sources': []}
+                all_symbols[symbol]['score'] += 2
+                all_symbols[symbol]['sources'].append('finviz_volatile')
+        except Exception as e:
+            log.warning(f"Finviz volatile failed: {e}")
         
-        reddit_tickers = self.scrape_reddit_wsb()
-        for ticker in reddit_tickers:
-            symbol = ticker['symbol']
-            if symbol not in all_symbols:
-                all_symbols[symbol] = {'score': 0, 'sources': []}
-            all_symbols[symbol]['score'] += min(ticker['mentions'], 5)  # Cap at 5
-            all_symbols[symbol]['sources'].append('reddit_wsb')
+        try:
+            reddit_tickers = self.scrape_reddit_wsb()
+            for ticker in reddit_tickers:
+                symbol = ticker['symbol']
+                if symbol not in all_symbols:
+                    all_symbols[symbol] = {'score': 0, 'sources': []}
+                all_symbols[symbol]['score'] += min(ticker['mentions'], 5)
+                all_symbols[symbol]['sources'].append('reddit_wsb')
+        except Exception as e:
+            log.warning(f"Reddit WSB failed: {e}")
+        
+        if not all_symbols:
+            log.error("All web scraping sources failed, returning empty list")
+            return []
         
         sorted_symbols = sorted(
             all_symbols.items(),
