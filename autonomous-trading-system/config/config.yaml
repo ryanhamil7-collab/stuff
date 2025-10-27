@@ -88,7 +88,7 @@ llm:
   top_p: 0.9
   use_structured_thesis: true
   compress_after_training: false
-  batch_size: 32
+  batch_size: 4
   
   ensemble:
     enabled: true

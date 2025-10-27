@@ -128,10 +128,17 @@ class AnalysisAgent:
                     except Exception as e:
                         log.error(f"Error preparing data for {symbol}: {str(e)}")
             
-            llm_decisions = self.llm_trader.batch_generate_decisions(
-                symbols_data,
-                batch_size=self.batch_size
-            )
+            try:
+                log.info(f"Starting LLM batch inference for {len(symbols_data)} symbols...")
+                llm_decisions = self.llm_trader.batch_generate_decisions(
+                    symbols_data,
+                    batch_size=self.batch_size
+                )
+                log.info(f"✓ LLM batch inference completed: {len(llm_decisions)} decisions")
+            except Exception as e:
+                log.error(f"LLM batch inference failed: {str(e)}")
+                log.error(f"Falling back to individual decisions")
+                llm_decisions = {}
         else:
             llm_decisions = {}
             for symbol, df in valid_symbols.items():
