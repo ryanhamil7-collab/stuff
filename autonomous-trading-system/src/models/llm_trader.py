@@ -25,48 +25,32 @@ class LLMTrader:
         log.info(f"Structured thesis format: {'enabled' if use_structured_thesis else 'disabled'}")
         
         try:
-            quantization = config.get('llm.quantization', '4bit')
+            quantization = config.get('llm.quantization', '8bit')
             
-            if quantization == '4bit' and torch.cuda.is_available():
+            if quantization == '8bit' and torch.cuda.is_available():
                 try:
                     bnb_config = BitsAndBytesConfig(
-                        load_in_4bit=True,
-                        bnb_4bit_quant_type="nf4",
-                        bnb_4bit_compute_dtype=torch.float16,
-                        bnb_4bit_use_double_quant=True
+                        load_in_8bit=True,
+                        llm_int8_threshold=6.0
                     )
-                    
                     self.model = AutoModelForCausalLM.from_pretrained(
                         model_name,
                         quantization_config=bnb_config,
                         device_map="auto",
                         trust_remote_code=True
                     )
-                    log.info("Loaded model with 4-bit quantization")
+                    log.info("✓ Loaded model with 8-bit quantization")
                 except Exception as quant_error:
-                    log.warning(f"4-bit quantization failed: {quant_error}")
-                    log.info("Falling back to 8-bit quantization")
-                    try:
-                        bnb_config = BitsAndBytesConfig(
-                            load_in_8bit=True,
-                            llm_int8_threshold=6.0
-                        )
-                        self.model = AutoModelForCausalLM.from_pretrained(
-                            model_name,
-                            quantization_config=bnb_config,
-                            device_map="auto",
-                            trust_remote_code=True
-                        )
-                        log.info("Loaded model with 8-bit quantization")
-                    except Exception as quant8_error:
-                        log.warning(f"8-bit quantization failed: {quant8_error}")
-                        log.info("Loading model without quantization (FP16)")
-                        self.model = AutoModelForCausalLM.from_pretrained(
-                            model_name,
-                            torch_dtype=torch.float16,
-                            device_map="auto",
-                            trust_remote_code=True
-                        )
+                    log.warning(f"8-bit quantization failed: {quant_error}")
+                    log.info("Loading model in FP16 (no quantization)")
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float16,
+                        device_map="auto",
+                        trust_remote_code=True,
+                        low_cpu_mem_usage=True
+                    )
+                    log.info("✓ Loaded model in FP16")
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
