@@ -42,10 +42,11 @@ trading:
 
 data:
   primary_source: "yfinance"
+  use_alpaca: true
   backup_sources:
     - "alpha_vantage"
     - "finnhub"
-  update_interval: 300  # 5 minutes in seconds
+  update_interval: 300
   historical_days: 365
   
   multimodal:

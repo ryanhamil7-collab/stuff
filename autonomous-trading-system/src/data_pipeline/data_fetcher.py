@@ -12,7 +12,59 @@ class DataFetcher:
     def __init__(self):
         self.alpha_vantage_key = config.get('api_keys.alpha_vantage', '')
         self.finnhub_key = config.get('api_keys.finnhub', '')
+        self.alpaca_api_key = config.get('api_keys.alpaca_api_key', '')
+        self.alpaca_secret_key = config.get('api_keys.alpaca_secret_key', '')
+        self.use_alpaca = config.get('data.use_alpaca', False)
         self.cache = {}
+        
+        if self.use_alpaca and self.alpaca_api_key and self.alpaca_secret_key:
+            try:
+                from alpaca.data.historical import StockHistoricalDataClient
+                from alpaca.data.requests import StockBarsRequest
+                from alpaca.data.timeframe import TimeFrame
+                self.alpaca_client = StockHistoricalDataClient(self.alpaca_api_key, self.alpaca_secret_key)
+                log.info("Alpaca data client initialized")
+            except Exception as e:
+                log.warning(f"Failed to initialize Alpaca client: {e}")
+                self.use_alpaca = False
+        else:
+            self.alpaca_client = None
+    
+    def fetch_from_alpaca(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+        try:
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+            
+            request_params = StockBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=TimeFrame.Day,
+                start=start_date,
+                end=end_date
+            )
+            
+            bars = self.alpaca_client.get_stock_bars(request_params)
+            df = bars.df
+            
+            if df.empty:
+                return pd.DataFrame()
+            
+            df = df.reset_index()
+            df = df.rename(columns={
+                'timestamp': 'Date',
+                'open': 'Open',
+                'high': 'High',
+                'low': 'Low',
+                'close': 'Close',
+                'volume': 'Volume'
+            })
+            df['Symbol'] = symbol
+            
+            log.info(f"Successfully fetched {len(df)} rows from Alpaca for {symbol}")
+            return df
+            
+        except Exception as e:
+            log.error(f"Error fetching Alpaca data for {symbol}: {str(e)}")
+            return pd.DataFrame()
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def fetch_historical_data(
@@ -30,6 +82,12 @@ class DataFetcher:
                 end_date = datetime.now().strftime('%Y-%m-%d')
             
             log.info(f"Fetching historical data for {symbol} from {start_date} to {end_date}")
+            
+            if self.use_alpaca and self.alpaca_client:
+                df = self.fetch_from_alpaca(symbol, start_date, end_date)
+                if not df.empty:
+                    return df
+                log.warning(f"Alpaca returned no data for {symbol}, falling back to yfinance")
             
             ticker = yf.Ticker(symbol)
             df = ticker.history(start=start_date, end=end_date, interval=interval)
@@ -79,11 +137,15 @@ class DataFetcher:
         start_date: str = None, 
         end_date: str = None
     ) -> Dict[str, pd.DataFrame]:
+        import time
         data = {}
-        for symbol in symbols:
+        for i, symbol in enumerate(symbols):
             df = self.fetch_historical_data(symbol, start_date, end_date)
             if not df.empty:
                 data[symbol] = df
+            
+            if i < len(symbols) - 1:
+                time.sleep(2)
         return data
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
