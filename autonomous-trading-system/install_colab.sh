@@ -38,21 +38,19 @@ echo "Step 8: Installing transformers..."
 pip install -q transformers==4.40.0
 pip install -q accelerate==0.28.0
 
-echo "Step 8a: Compiling bitsandbytes from source for Colab CUDA..."
+echo "Step 8a: Installing bitsandbytes with CUDA 12.2 support..."
 export CUDA_HOME=/usr/local/cuda
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export PATH=$CUDA_HOME/bin:$PATH
+export BNB_CUDA_VERSION=122
 
 pip uninstall -y bitsandbytes
 
-CUDA_VERSION=$(python3 -c "import torch; print(torch.version.cuda.replace('.', ''))")
-echo "Detected CUDA version: $CUDA_VERSION"
-
-pip install -q git+https://github.com/TimDettmers/bitsandbytes.git
+pip install -q bitsandbytes --extra-index-url https://jllllll.github.io/bitsandbytes-windows-webui
 
 echo "Verifying CUDA and bitsandbytes setup..."
 python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
-python3 -c "import bitsandbytes as bnb; print(f'bitsandbytes version: {bnb.__version__}')"
+python3 -m bitsandbytes
 
 echo "Step 9: Installing RL libraries..."
 pip install -q stable-baselines3==2.2.1
