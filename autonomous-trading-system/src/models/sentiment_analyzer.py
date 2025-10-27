@@ -72,37 +72,79 @@ class SentimentAnalyzer:
                 'articles_analyzed': 0
             }
         
-        sentiments = []
-        positive_count = 0
-        negative_count = 0
-        neutral_count = 0
+        if not self.sentiment_pipeline:
+            return {
+                'overall_sentiment': 0.0,
+                'positive_count': 0,
+                'negative_count': 0,
+                'neutral_count': 0,
+                'articles_analyzed': 0
+            }
         
+        texts = []
         for article in news_articles:
             text = article.get('headline', '') + ' ' + article.get('summary', '')
-            
-            if not text.strip():
-                continue
-            
-            result = self.analyze_text(text)
-            sentiments.append(result['sentiment_score'])
-            
-            if result['label'] == 'positive':
-                positive_count += 1
-            elif result['label'] == 'negative':
-                negative_count += 1
-            else:
-                neutral_count += 1
+            if text.strip():
+                texts.append(text[:512])
         
-        overall_sentiment = np.mean(sentiments) if sentiments else 0.0
+        if not texts:
+            return {
+                'overall_sentiment': 0.0,
+                'positive_count': 0,
+                'negative_count': 0,
+                'neutral_count': 0,
+                'articles_analyzed': 0
+            }
         
-        return {
-            'overall_sentiment': float(overall_sentiment),
-            'positive_count': positive_count,
-            'negative_count': negative_count,
-            'neutral_count': neutral_count,
-            'articles_analyzed': len(sentiments),
-            'sentiment_std': float(np.std(sentiments)) if sentiments else 0.0
-        }
+        try:
+            results = self.sentiment_pipeline(texts, batch_size=32)
+            
+            label_map = {
+                'positive': 1.0,
+                'negative': -1.0,
+                'neutral': 0.0,
+                'POSITIVE': 1.0,
+                'NEGATIVE': -1.0,
+                'NEUTRAL': 0.0
+            }
+            
+            sentiments = []
+            positive_count = 0
+            negative_count = 0
+            neutral_count = 0
+            
+            for result in results:
+                label = result['label'].lower()
+                sentiment_score = label_map.get(result['label'], 0.0) * result['score']
+                sentiments.append(sentiment_score)
+                
+                if label == 'positive':
+                    positive_count += 1
+                elif label == 'negative':
+                    negative_count += 1
+                else:
+                    neutral_count += 1
+            
+            overall_sentiment = np.mean(sentiments) if sentiments else 0.0
+            
+            return {
+                'overall_sentiment': float(overall_sentiment),
+                'positive_count': positive_count,
+                'negative_count': negative_count,
+                'neutral_count': neutral_count,
+                'articles_analyzed': len(sentiments),
+                'sentiment_std': float(np.std(sentiments)) if sentiments else 0.0
+            }
+            
+        except Exception as e:
+            log.error(f"Error in batch sentiment analysis: {str(e)}")
+            return {
+                'overall_sentiment': 0.0,
+                'positive_count': 0,
+                'negative_count': 0,
+                'neutral_count': 0,
+                'articles_analyzed': 0
+            }
     
     def analyze_symbol_sentiment(self, symbol: str, news_data: List[Dict]) -> Dict:
         log.info(f"Analyzing sentiment for {symbol}")
