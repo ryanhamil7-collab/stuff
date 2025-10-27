@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from src.agents import DataAgent, AnalysisAgent, DecisionAgent
 from src.agents.offline_research import OfflineResearchEngine
 from src.agents.symbol_discovery import SymbolDiscoveryV2
+from src.agents.position_monitor import PositionMonitor
 from src.strategies.portfolio import Portfolio
 from src.strategies import RiskManager
 from src.utils import log, config
@@ -28,6 +29,7 @@ class AutopilotDaemon:
         self.data_agent = DataAgent()
         self.analysis_agent = AnalysisAgent()
         self.decision_agent = DecisionAgent()
+        self.position_monitor = PositionMonitor()
         
         self.rl_trader = None
         try:
@@ -242,12 +244,29 @@ class AutopilotDaemon:
             
             signals = analysis_result.get('signals', {})
             
-            log.info("Step 3: Making trading decisions")
+            log.info("Step 2.5: Monitoring held positions")
+            held_positions = self.portfolio.get_positions()
             current_prices = {}
             for symbol, df in processed_data.items():
                 if len(df) > 0:
                     current_prices[symbol] = df.iloc[-1]['Close']
             
+            if held_positions:
+                monitoring_insights = self.position_monitor.monitor_positions(
+                    held_positions,
+                    current_prices
+                )
+                
+                exit_signals = self.position_monitor.generate_exit_signals(monitoring_insights)
+                
+                for exit_signal in exit_signals:
+                    symbol = exit_signal['symbol']
+                    if symbol not in signals:
+                        signals[symbol] = {}
+                    signals[symbol]['exit_signal'] = exit_signal
+                    log.info(f"Exit signal for {symbol}: {exit_signal['action']} - {exit_signal['reason']}")
+            
+            log.info("Step 3: Making trading decisions")
             decision_result = self.decision_agent.run(
                 signals,
                 self.portfolio,
