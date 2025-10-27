@@ -19,7 +19,7 @@ class DataAgent:
         if start_date is None:
             from datetime import timedelta
             end_dt = datetime.now()
-            start_dt = end_dt - timedelta(days=60)
+            start_dt = end_dt - timedelta(days=365)
             start_date = start_dt.strftime('%Y-%m-%d')
             end_date = end_dt.strftime('%Y-%m-%d')
             log.info(f"Using recent date range for live trading: {start_date} to {end_date}")
