@@ -17,11 +17,15 @@ class DataAgent:
         log.info(f"Collecting market data for {len(symbols)} symbols")
         
         if start_date is None:
-            start_date = config.get('backtest.start_date')
-        if end_date is None:
-            end_date = config.get('backtest.end_date')
+            from datetime import timedelta
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=60)
+            start_date = start_dt.strftime('%Y-%m-%d')
+            end_date = end_dt.strftime('%Y-%m-%d')
+            log.info(f"Using recent date range for live trading: {start_date} to {end_date}")
+        else:
+            log.info(f"Date range: {start_date} to {end_date}")
         
-        log.info(f"Date range: {start_date} to {end_date}")
         data = self.fetcher.fetch_multiple_symbols(symbols, start_date, end_date)
         
         log.info(f"Successfully collected data for {len(data)} symbols")
