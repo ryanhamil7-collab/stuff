@@ -164,24 +164,24 @@ class AutopilotDaemon:
             log.info(f"Starting cycle at {datetime.now()}")
             
             if not self.is_trading_hours():
-                log.info("Outside trading hours")
-                if self.enable_research and self.research_engine:
-                    log.info("Running offline research and training...")
-                    try:
-                        llm_trader = None
-                        if hasattr(self.decision_agent, 'llm_trader'):
-                            llm_trader = self.decision_agent.llm_trader
-                        
-                        self.research_engine.run_offline_research(
-                            llm_trader=llm_trader,
-                            rl_trader=self.rl_trader
-                        )
-                        log.info("✓ Offline research completed (includes historical data training)")
-                    except Exception as e:
-                        log.error(f"Error in offline research: {str(e)}")
-                else:
-                    log.info("Offline research disabled, skipping cycle")
-                return
+                log.info("Outside trading hours - running full cycle anyway for testing")
+                # if self.enable_research and self.research_engine:
+                #     log.info("Running offline research and training...")
+                #     try:
+                #         llm_trader = None
+                #         if hasattr(self.decision_agent, 'llm_trader'):
+                #             llm_trader = self.decision_agent.llm_trader
+                #         
+                #         self.research_engine.run_offline_research(
+                #             llm_trader=llm_trader,
+                #             rl_trader=self.rl_trader
+                #         )
+                #         log.info("✓ Offline research completed (includes historical data training)")
+                #     except Exception as e:
+                #         log.error(f"Error in offline research: {str(e)}")
+                # else:
+                #     log.info("Offline research disabled, skipping cycle")
+                # return
             
             if self.alpaca_api:
                 log.info("Step 0: Syncing Alpaca account")
