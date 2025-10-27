@@ -195,19 +195,24 @@ class AutopilotDaemon:
                         volatile_symbols = []
                         stable_symbols = []
                         
-                        for sym_data in discovered_symbols[:30]:
+                        for i, sym_data in enumerate(discovered_symbols[:30]):
                             symbol = sym_data['symbol']
-                            volatility = sym_data.get('volatility', 0)
+                            volatility = sym_data.get('volatility', 0.05)
                             
                             if volatility > 0.03:
                                 volatile_symbols.append(symbol)
                             elif volatility < 0.02:
                                 stable_symbols.append(symbol)
                             else:
-                                if len(volatile_symbols) < len(stable_symbols):
+                                if i % 2 == 0:
                                     volatile_symbols.append(symbol)
                                 else:
                                     stable_symbols.append(symbol)
+                        
+                        if not volatile_symbols and not stable_symbols:
+                            all_symbols = [s['symbol'] for s in discovered_symbols[:30]]
+                            volatile_symbols = all_symbols[:15]
+                            stable_symbols = all_symbols[15:30]
                         
                         config.data['autopilot']['hybrid']['intraday_symbols'] = volatile_symbols[:15]
                         config.data['autopilot']['hybrid']['interday_symbols'] = stable_symbols[:15]
