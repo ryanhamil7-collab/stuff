@@ -60,6 +60,7 @@ python3 -c "import bitsandbytes as bnb; print(f'✓ bitsandbytes {bnb.__version_
 echo "Step 9: Installing RL libraries..."
 pip install -q stable-baselines3==2.2.1
 pip install -q gymnasium==0.29.1
+pip install -q lime==0.2.0.1
 
 echo "Step 10: Installing utilities..."
 pip install -q python-dotenv==1.0.1

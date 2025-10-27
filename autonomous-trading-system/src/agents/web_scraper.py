@@ -252,7 +252,7 @@ class WebScraper:
                 symbol = stock['symbol']
                 if symbol not in all_symbols:
                     all_symbols[symbol] = {'score': 0, 'sources': []}
-                all_symbols[symbol]['score'] += 2
+                all_symbols[symbol]['score'] += 3
                 all_symbols[symbol]['sources'].append('finviz_gainers')
         except Exception as e:
             log.warning(f"Finviz gainers failed: {e}")
@@ -263,10 +263,21 @@ class WebScraper:
                 symbol = stock['symbol']
                 if symbol not in all_symbols:
                     all_symbols[symbol] = {'score': 0, 'sources': []}
-                all_symbols[symbol]['score'] += 2
+                all_symbols[symbol]['score'] += 3
                 all_symbols[symbol]['sources'].append('finviz_volatile')
         except Exception as e:
             log.warning(f"Finviz volatile failed: {e}")
+        
+        try:
+            finviz_unusual = self.scrape_finviz_screener('ta_unusualvolume')
+            for stock in finviz_unusual:
+                symbol = stock['symbol']
+                if symbol not in all_symbols:
+                    all_symbols[symbol] = {'score': 0, 'sources': []}
+                all_symbols[symbol]['score'] += 2
+                all_symbols[symbol]['sources'].append('finviz_unusual_volume')
+        except Exception as e:
+            log.warning(f"Finviz unusual volume failed: {e}")
         
         try:
             reddit_tickers = self.scrape_reddit_wsb()
