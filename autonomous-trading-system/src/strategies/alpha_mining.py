@@ -147,10 +147,18 @@ class AlphaMining:
             changes = alpha_values.diff().abs()
             alpha_mean = alpha_values.abs().mean()
             
-            if alpha_mean == 0 or np.isnan(alpha_mean):
+            if np.isnan(alpha_mean) or alpha_mean < 1e-10:
                 return 0.0
             
-            turnover = changes.mean() / alpha_mean
+            changes_mean = changes.mean()
+            if np.isnan(changes_mean):
+                return 0.0
+            
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=RuntimeWarning)
+                turnover = changes_mean / alpha_mean
+            
             return turnover if not np.isnan(turnover) else 0.0
         except Exception as e:
             log.error(f"Error calculating turnover: {str(e)}")
