@@ -390,7 +390,9 @@ Trading Decision:"""
                     padding=True,
                     truncation=True,
                     max_length=2048
-                ).to(self.device)
+                )
+                
+                inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
                 
                 with torch.no_grad():
                     outputs = self.model.generate(
