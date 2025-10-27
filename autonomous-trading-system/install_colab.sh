@@ -36,7 +36,7 @@ pip install -q torch==2.1.0 torchvision torchaudio --index-url https://download.
 
 echo "Step 8: Installing transformers..."
 pip install -q transformers==4.40.0
-pip install -q accelerate==0.28.0
+pip install -q accelerate==0.33.0
 
 echo "Step 8a: Compiling bitsandbytes for CUDA 12.6..."
 export CUDA_HOME=/usr/local/cuda
