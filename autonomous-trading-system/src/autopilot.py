@@ -214,8 +214,8 @@ class AutopilotDaemon:
                             volatile_symbols = all_symbols[:15]
                             stable_symbols = all_symbols[15:30]
                         
-                        config.data['autopilot']['hybrid']['intraday_symbols'] = volatile_symbols[:15]
-                        config.data['autopilot']['hybrid']['interday_symbols'] = stable_symbols[:15]
+                        config.config['autopilot']['hybrid']['intraday_symbols'] = volatile_symbols[:15]
+                        config.config['autopilot']['hybrid']['interday_symbols'] = stable_symbols[:15]
                         
                         log.info(f"✓ Discovered {len(discovered_symbols)} symbols")
                         log.info(f"  → {len(volatile_symbols[:15])} volatile (day trading): {', '.join(volatile_symbols[:15])}")
