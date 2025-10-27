@@ -71,7 +71,8 @@ python-dotenv>=1.0.0
 pyyaml>=6.0.1
 tqdm>=4.66.0
 psutil>=5.9.0
-alpaca-trade-api>=3.0.0  # For live paper trading
+alpaca-trade-api>=3.0.0
+alpaca-py>=0.21.0
 
 # Logging & Monitoring
 loguru>=0.7.2

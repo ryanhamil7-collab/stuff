@@ -23,12 +23,15 @@ class DataFetcher:
                 from alpaca.data.requests import StockBarsRequest
                 from alpaca.data.timeframe import TimeFrame
                 self.alpaca_client = StockHistoricalDataClient(self.alpaca_api_key, self.alpaca_secret_key)
-                log.info("Alpaca data client initialized")
+                log.info("✓ Alpaca data client initialized successfully")
             except Exception as e:
-                log.warning(f"Failed to initialize Alpaca client: {e}")
+                log.error(f"Failed to initialize Alpaca client: {e}")
                 self.use_alpaca = False
+                self.alpaca_client = None
         else:
             self.alpaca_client = None
+            if self.use_alpaca:
+                log.warning(f"Alpaca enabled but missing credentials: api_key={bool(self.alpaca_api_key)}, secret_key={bool(self.alpaca_secret_key)}")
     
     def fetch_from_alpaca(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         try:

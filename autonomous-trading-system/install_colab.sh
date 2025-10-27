@@ -15,6 +15,7 @@ pip install -q websockets==12.0
 echo "Step 3: Installing market data APIs..."
 pip install -q yfinance==0.2.40
 pip install -q alpaca-trade-api==3.2.0
+pip install -q alpaca-py==0.21.0
 pip install -q alpha-vantage==2.3.1
 pip install -q finnhub-python==2.4.25
 
@@ -79,6 +80,7 @@ python3 -c "import urllib3; print(f'✓ urllib3: {urllib3.__version__}')"
 python3 -c "import websockets; print(f'✓ websockets: {websockets.__version__}')"
 python3 -c "import yfinance; print('✓ yfinance: OK')"
 python3 -c "import alpaca_trade_api; print('✓ alpaca-trade-api: OK')"
+python3 -c "from alpaca.data.historical import StockHistoricalDataClient; print('✓ alpaca-py: OK')"
 python3 -c "import torch; print(f'✓ torch: {torch.__version__} (CUDA: {torch.cuda.is_available()})')"
 python3 -c "import transformers; print(f'✓ transformers: {transformers.__version__}')"
 python3 -c "import apscheduler; print(f'✓ APScheduler: {apscheduler.__version__}')"
